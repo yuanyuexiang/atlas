@@ -58,3 +58,6 @@ htmlcov/
 *.bak
 .env
 .env.local
+.env.production
+*.db
+*.db-*

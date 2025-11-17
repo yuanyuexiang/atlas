@@ -18,7 +18,7 @@
 前端应用
   ↓ HTTP API
 FastAPI 后端
-  ├── SQLite（智能体 & 客服管理）
+  ├── PostgreSQL（关系数据 - 117.72.204.201:5432）
   ├── Milvus（向量存储 - 117.72.204.201:19530）
   └── 本地文件系统（元数据）
 ```
@@ -66,13 +66,15 @@ OPENAI_API_KEY=your-api-key
 CHAT_MODEL=openai/gpt-oss-120b
 EMBEDDING_MODEL=openai/text-embedding-3-small
 
+# PostgreSQL 数据库
+DATABASE_URL=postgresql://postgres:p0stgr3s@117.72.204.201:5432/atlas
+
 # Milvus 向量数据库
 MILVUS_HOST=117.72.204.201
 MILVUS_PORT=19530
 
 # 本地存储
 METADATA_DIR=metadata_store
-DATABASE_URL=sqlite:///./doctor.db
 
 # JWT 认证（生产环境必须修改）
 JWT_SECRET_KEY=your-secret-key-change-this-in-production
@@ -227,7 +229,7 @@ doctor/
 - **FastAPI**: Web 框架
 - **Milvus**: 向量数据库
 - **LangChain**: RAG 框架
-- **SQLite**: 关系数据库
+- **PostgreSQL**: 关系数据库
 - **SQLAlchemy**: ORM
 - **Pydantic**: 数据验证
 - **JWT**: 身份认证

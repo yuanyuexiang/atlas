@@ -30,7 +30,24 @@ class Settings:
     ALLOWED_EXTENSIONS: list = [".pdf", ".txt", ".md"]
     
     # 数据库配置
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./doctor.db")
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL",
+        "postgresql://postgres:p0stgr3s@117.72.204.201:5432/atlas"
+    )
+    
+    # Milvus 配置
+    MILVUS_HOST: str = os.getenv("MILVUS_HOST", "117.72.204.201")
+    MILVUS_PORT: int = int(os.getenv("MILVUS_PORT", "19530"))
+    
+    # JWT 认证配置
+    JWT_SECRET_KEY: str = os.getenv(
+        "JWT_SECRET_KEY",
+        "your-secret-key-change-this-in-production"
+    )
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(
+        os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+    )
     
     # CORS 配置
     CORS_ORIGINS: list = [

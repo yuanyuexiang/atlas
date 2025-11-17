@@ -28,9 +28,10 @@ class MilvusSettings(BaseSettings):
 
 def get_milvus_settings() -> MilvusSettings:
     """获取 Milvus 配置"""
+    from core.config import settings
     return MilvusSettings(
-        host=os.getenv("MILVUS_HOST", "117.72.204.201"),
-        port=int(os.getenv("MILVUS_PORT", "19530")),
+        host=settings.MILVUS_HOST,
+        port=settings.MILVUS_PORT,
         user=os.getenv("MILVUS_USER"),
         password=os.getenv("MILVUS_PASSWORD"),
         db_name=os.getenv("MILVUS_DB_NAME", "default")

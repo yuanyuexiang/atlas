@@ -3,8 +3,19 @@ services:
     container_name: atlas
     image: ${DOCKER_IMAGE_TAG}
     restart: always
-    healthcheck:
-      disable: true
+    env_file:
+      - .env # 本地开发使用（不要提交到 Git）
+    # 或者使用环境变量（生产推荐）：
+    # environment:
+    #   - DATABASE_URL=postgresql://postgres:p0stgr3s@117.72.204.201:5432/atlas
+    #   - MILVUS_HOST=117.72.204.201
+    #   - MILVUS_PORT=19530
+    #   - OPENAI_API_KEY=${OPENAI_API_KEY}
+    #   - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+    #   - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+    volumes:
+      - ./metadata_store:/app/metadata_store
+      - ./uploads:/app/uploads
     networks:
       - matrix-network
     labels:
@@ -13,7 +24,7 @@ services:
       - "traefik.http.routers.atlas.entrypoints=websecure"
       - "traefik.http.routers.atlas.service=atlas"
       - "traefik.http.routers.atlas.tls.certresolver=dnspodresolver"
-      - "traefik.http.services.atlas.loadbalancer.server.port=3000"
+      - "traefik.http.services.atlas.loadbalancer.server.port=8000"
 
 networks:
   matrix-network:

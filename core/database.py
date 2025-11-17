@@ -6,13 +6,27 @@ from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./doctor.db")
-
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
-    echo=False  # 生产环境关闭 SQL 日志
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://postgres:p0stgr3s@117.72.204.201:5432/atlas"
 )
+
+# PostgreSQL 连接池配置
+engine_kwargs = {
+    "echo": False,  # 生产环境关闭 SQL 日志
+}
+
+if "postgresql" in DATABASE_URL:
+    engine_kwargs.update({
+        "pool_size": 10,
+        "max_overflow": 20,
+        "pool_pre_ping": True,  # 连接前测试有效性
+        "pool_recycle": 3600,  # 1小时回收连接
+    })
+elif "sqlite" in DATABASE_URL:
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

@@ -5,7 +5,7 @@ JWT 认证服务
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -15,21 +15,25 @@ from core.database import get_db
 from models.auth import User
 from models.auth_schemas import TokenData
 
-# 密码加密上下文
-pwd_context = CryptContext(schemes=auth_settings.pwd_schemes, deprecated=auth_settings.pwd_deprecated)
-
 # HTTP Bearer Token 认证（auto_error=False 允许手动处理认证错误）
 security = HTTPBearer(auto_error=True)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """验证密码"""
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(
+        plain_password.encode('utf-8'),
+        hashed_password.encode('utf-8')
+    )
 
 
 def get_password_hash(password: str) -> str:
-    """加密密码"""
-    return pwd_context.hash(password)
+    """加密密码 - bcrypt 限制密码最大 72 字节"""
+    # 确保密码不超过 72 字节
+    password_bytes = password.encode('utf-8')[:72]
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
