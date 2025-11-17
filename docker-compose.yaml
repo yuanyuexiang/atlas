@@ -1,0 +1,20 @@
+services:
+  atlas:
+    container_name: atlas
+    image: ${DOCKER_IMAGE_TAG}
+    restart: always
+    healthcheck:
+      disable: true
+    networks:
+      - matrix-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.atlas.rule=Host(`atlas.matrix-net.tech`)" # 替换为你的域名
+      - "traefik.http.routers.atlas.entrypoints=websecure"
+      - "traefik.http.routers.atlas.service=atlas"
+      - "traefik.http.routers.atlas.tls.certresolver=dnspodresolver"
+      - "traefik.http.services.atlas.loadbalancer.server.port=3000"
+
+networks:
+  matrix-network:
+    external: true
