@@ -2,9 +2,9 @@ name: 前端构建部署
 
 on:
   push:
-    branches: ["master"]
+    branches: ["main"]
   pull_request:
-    branches: ["master"]
+    branches: ["main"]
 
 jobs:
   # 打包镜像
