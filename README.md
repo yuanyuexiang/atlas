@@ -77,7 +77,7 @@ MILVUS_PORT=19530
 METADATA_DIR=metadata_store
 
 # JWT 认证（生产环境必须修改）
-JWT_SECRET_KEY=your-secret-key-change-this-in-production
+JWT_SECRET_KEY=matrix-net-tech
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
 ```
 

@@ -62,7 +62,7 @@ MILVUS_HOST: str = os.getenv("MILVUS_HOST", "117.72.204.201")
 MILVUS_PORT: int = int(os.getenv("MILVUS_PORT", "19530"))
 
 # JWT 认证配置
-JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production")
+JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "matrix-net-tech")
 JWT_ALGORITHM: str = "HS256"
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 ```
@@ -136,7 +136,7 @@ CHAT_MODEL=openai/gpt-oss-120b
 EMBEDDING_MODEL=openai/text-embedding-3-small
 
 # JWT 认证
-JWT_SECRET_KEY=your-secret-key-change-this-in-production
+JWT_SECRET_KEY=matrix-net-tech
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 # 应用配置

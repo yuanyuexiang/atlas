@@ -42,7 +42,7 @@ class Settings:
     # JWT 认证配置
     JWT_SECRET_KEY: str = os.getenv(
         "JWT_SECRET_KEY",
-        "your-secret-key-change-this-in-production"
+        "matrix-net-tech"
     )
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(
