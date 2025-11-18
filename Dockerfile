@@ -12,11 +12,11 @@ RUN apt-get update && apt-get install -y \
 RUN pip install uv
 
 # Copy project files
-COPY pyproject.toml uv.lock* ./
+COPY pyproject.toml uv.lock ./
 COPY . .
 
 # Install dependencies using uv (use pip install for better compatibility)
-RUN uv pip install --system -e .
+RUN uv sync --frozen
 
 # Create necessary directories
 RUN mkdir -p metadata_store uploads
