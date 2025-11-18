@@ -148,7 +148,7 @@ jobs:
           docker images
 
           # 创建环境变量文件
-          echo "DOCKER_IMAGE_TAG=${{ env.DOCKER_IMAGE_TAG }}" > .env
+          echo "DOCKER_IMAGE_TAG=${{env.DOCKER_IMAGE_TAG}}" > .env
 
           # 停止现有容器并启动新容器
           docker-compose -f docker-compose.yaml down --remove-orphans
