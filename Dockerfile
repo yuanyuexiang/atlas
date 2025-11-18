@@ -32,8 +32,8 @@ RUN apt-get update && apt-get install -y \
     libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-# 从 builder 复制 uv 二进制和虚拟环境
-COPY --from=builder /root/.cargo/bin/uv /usr/local/bin/uv
+# 从 builder 复制 uv 二进制（官方镜像中 uv 在 /usr/local/bin）
+COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
 
 # 从 builder 复制虚拟环境和项目
 COPY --from=builder /app/.venv /app/.venv
