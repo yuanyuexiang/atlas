@@ -15,8 +15,8 @@ RUN pip install uv
 COPY pyproject.toml uv.lock* ./
 COPY . .
 
-# Install dependencies using uv
-RUN uv sync --frozen --no-dev || uv pip install --system -e .
+# Install dependencies using uv (use pip install for better compatibility)
+RUN uv pip install --system -e .
 
 # Create necessary directories
 RUN mkdir -p metadata_store uploads
