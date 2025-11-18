@@ -32,8 +32,8 @@ RUN apt-get update && apt-get install -y \
     libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-# 从 builder 复制 uv 二进制
-COPY --from=ghcr.io/astral-sh/uv:python3.12-bookworm /uv /usr/local/bin/uv
+# 从 builder 复制 uv 二进制和虚拟环境
+COPY --from=builder /root/.cargo/bin/uv /usr/local/bin/uv
 
 # 从 builder 复制虚拟环境和项目
 COPY --from=builder /app/.venv /app/.venv
