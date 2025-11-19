@@ -585,7 +585,7 @@ Authorization: Bearer {token}
 
 ## 5. 对话接口 `/api/chat`
 
-### 5.1 发送消息
+### 5.1 发送消息（同步响应）
 
 ```http
 POST https://atlas.matrix-net.tech/api/chat/{conversation_name}/message
@@ -613,10 +613,306 @@ Authorization: Bearer {token}
 
 **工作流程**：
 ```
-用户消息 → 获取客服关联的智能体 → 检索知识库 → LLM 生成回复 → 返回结果
+用户消息 → 获取客服关联的智能体 → 检索知识库 → LLM 生成回复 → 返回完整结果
 ```
 
-### 5.2 清空对话历史
+**适用场景**：
+- ✅ 短文本问答
+- ✅ 简单的 Q&A 场景
+- ❌ 不适合长文本生成
+
+---
+
+### 5.2 发送消息（流式响应）⚡ 推荐
+
+```http
+POST https://atlas.matrix-net.tech/api/chat/{conversation_name}/message/stream
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+**请求体**：
+```json
+{
+  "content": "请详细介绍一下你们的产品特点和优势",
+  "session_id": "session_123"
+}
+```
+
+**响应格式**：Server-Sent Events (SSE)
+```
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+
+data: {"content": "", "done": false, "agent_name": "customer-service"}
+
+data: {"content": "我们的", "done": false, "agent_name": "customer-service"}
+
+data: {"content": "产品", "done": false, "agent_name": "customer-service"}
+
+data: {"content": "主要有", "done": false, "agent_name": "customer-service"}
+
+data: {"content": "以下", "done": false, "agent_name": "customer-service"}
+
+data: {"content": "特点", "done": false, "agent_name": "customer-service"}
+
+...
+
+data: {"content": "", "done": true, "agent_name": "customer-service"}
+```
+
+**数据字段说明**：
+- `content`: 本次返回的文本片段（增量内容）
+- `done`: 是否结束（`true` 表示生成完成）
+- `agent_name`: 智能体名称
+- `error`: 错误信息（仅在出错时存在）
+
+**前端实现示例（原生 JavaScript）**：
+
+```javascript
+async function sendMessageStream(conversationName, message) {
+  const response = await fetch(
+    `https://atlas.matrix-net.tech/api/chat/${conversationName}/message/stream`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ content: message })
+    }
+  );
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let fullResponse = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value);
+    const lines = chunk.split('\n');
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = JSON.parse(line.slice(6));
+        
+        if (data.error) {
+          console.error('Error:', data.error);
+          break;
+        }
+
+        if (data.content) {
+          fullResponse += data.content;
+          // 更新 UI，逐字显示
+          updateChatUI(fullResponse);
+        }
+
+        if (data.done) {
+          console.log('Stream completed');
+          return fullResponse;
+        }
+      }
+    }
+  }
+}
+```
+
+**前端实现示例（使用 EventSource）**：
+
+```javascript
+function sendMessageStreamSSE(conversationName, message) {
+  // 注意：EventSource 不支持 POST，需要后端支持 GET + query params
+  // 或使用 fetch API 的方式（推荐上面的方法）
+  
+  const url = new URL(`https://atlas.matrix-net.tech/api/chat/${conversationName}/message/stream`);
+  const eventSource = new EventSource(url);
+  let fullResponse = '';
+
+  eventSource.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    
+    if (data.content) {
+      fullResponse += data.content;
+      updateChatUI(fullResponse);
+    }
+
+    if (data.done) {
+      eventSource.close();
+    }
+  };
+
+  eventSource.onerror = (error) => {
+    console.error('SSE Error:', error);
+    eventSource.close();
+  };
+}
+```
+
+**Vue 3 组合式 API 示例**：
+
+```vue
+<script setup>
+import { ref } from 'vue'
+
+const message = ref('')
+const response = ref('')
+const isStreaming = ref(false)
+
+async function sendMessage() {
+  if (!message.value.trim()) return
+  
+  isStreaming.value = true
+  response.value = ''
+  
+  try {
+    const res = await fetch(
+      `https://atlas.matrix-net.tech/api/chat/customer-service-01/message/stream`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ content: message.value })
+      }
+    )
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      const chunk = decoder.decode(value)
+      const lines = chunk.split('\n')
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = JSON.parse(line.slice(6))
+          
+          if (data.content) {
+            response.value += data.content
+          }
+          
+          if (data.done) {
+            isStreaming.value = false
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Stream error:', error)
+    isStreaming.value = false
+  }
+}
+</script>
+
+<template>
+  <div>
+    <input v-model="message" :disabled="isStreaming" />
+    <button @click="sendMessage" :disabled="isStreaming">
+      {{ isStreaming ? '生成中...' : '发送' }}
+    </button>
+    <div class="response">{{ response }}</div>
+  </div>
+</template>
+```
+
+**React 示例**：
+
+```jsx
+import { useState } from 'react';
+
+function ChatComponent() {
+  const [message, setMessage] = useState('');
+  const [response, setResponse] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+
+  const sendMessage = async () => {
+    if (!message.trim()) return;
+    
+    setIsStreaming(true);
+    setResponse('');
+    
+    try {
+      const res = await fetch(
+        'https://atlas.matrix-net.tech/api/chat/customer-service-01/message/stream',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ content: message })
+        }
+      );
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.slice(6));
+            
+            if (data.content) {
+              setResponse(prev => prev + data.content);
+            }
+            
+            if (data.done) {
+              setIsStreaming(false);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Stream error:', error);
+      setIsStreaming(false);
+    }
+  };
+
+  return (
+    <div>
+      <input 
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        disabled={isStreaming}
+      />
+      <button onClick={sendMessage} disabled={isStreaming}>
+        {isStreaming ? '生成中...' : '发送'}
+      </button>
+      <div className="response">{response}</div>
+    </div>
+  );
+}
+```
+
+**流式响应的优势**：
+- ✅ **用户体验极佳**: 类似 ChatGPT 的逐字显示效果
+- ✅ **首字响应快**: 无需等待完整生成，立即开始显示
+- ✅ **降低等待感知**: 用户看到进度，不会感到焦虑
+- ✅ **适合长文本**: 长回答也能快速开始显示
+- ✅ **实时反馈**: 生成过程中用户可以随时停止
+
+**注意事项**：
+- 流式请求使用 Server-Sent Events (SSE) 协议
+- 需要保持连接直到 `done: true`
+- 建议添加超时处理（如 60 秒）
+- 错误时检查 `error` 字段
+
+---
+
+### 5.3 清空对话历史
 
 ```http
 DELETE https://atlas.matrix-net.tech/api/chat/{conversation_name}/history

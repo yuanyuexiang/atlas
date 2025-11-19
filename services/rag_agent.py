@@ -73,7 +73,7 @@ class RAGAgent:
     
     def ask(self, question: str) -> str:
         """
-        向 Agent 提问
+        向 Agent 提问（同步方式）
         
         Args:
             question: 用户问题
@@ -104,6 +104,44 @@ class RAGAgent:
             error_msg = f"抱歉，处理您的问题时出现了错误。"
             self.chat_history.append(AIMessage(content=error_msg))
             return error_msg
+    
+    async def ask_stream(self, question: str):
+        """
+        向 Agent 提问（流式响应）
+        
+        Args:
+            question: 用户问题
+            
+        Yields:
+            str: 逐块返回的回答内容
+        """
+        try:
+            self.chat_history.append(HumanMessage(content=question))
+            
+            # 从知识库检索
+            context = self._retrieve_for_agent(question)
+            
+            # 构建 Prompt
+            prompt_text = f"{self.system_prompt}\n\n知识库内容：\n{context}\n\n用户问题：{question}\n\n请基于知识库内容回答用户问题。"
+            
+            # 流式调用 LLM
+            full_response = ""
+            async for chunk in self.llm.astream(prompt_text):
+                if hasattr(chunk, 'content') and chunk.content:
+                    content = chunk.content
+                    full_response += content
+                    yield content
+            
+            # 保存完整回答到历史
+            self.chat_history.append(AIMessage(content=full_response))
+            
+        except Exception as e:
+            print(f"❌ 流式处理错误: {e}")
+            import traceback
+            traceback.print_exc()
+            error_msg = "抱歉，处理您的问题时出现了错误。"
+            self.chat_history.append(AIMessage(content=error_msg))
+            yield error_msg
     
     def _retrieve_for_agent(self, query: str) -> str:
         """Agent 内部使用的检索方法"""

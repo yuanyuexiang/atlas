@@ -2,6 +2,7 @@
 对话 API 路由
 """
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
 from models.schemas import MessageRequest, MessageResponse
@@ -10,6 +11,7 @@ from services.conversation_service import ConversationService
 from services.multi_rag_manager import get_rag_manager
 from services.auth_service import get_current_active_user
 from core.database import get_db
+import json
 
 router = APIRouter(prefix="/chat", tags=["对话"])
 conversation_service = ConversationService()
@@ -24,7 +26,7 @@ async def send_message(
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    向客服发送消息并获取AI回复
+    向客服发送消息并获取AI回复（同步方式，返回完整响应）
     
     流程：
     1. 验证客服状态
@@ -57,6 +59,89 @@ async def send_message(
             timestamp=datetime.utcnow().isoformat(),
             agent_name=agent_name,
             knowledge_base_used=True
+        )
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"处理消息失败: {str(e)}")
+
+
+@router.post("/{conversation_name}/message/stream", summary="发送消息（流式响应）")
+async def send_message_stream(
+    conversation_name: str,
+    message: MessageRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    向客服发送消息并获取AI回复（流式响应，Server-Sent Events）
+    
+    流式响应优势：
+    - 逐字显示，用户体验更好（类似 ChatGPT）
+    - 降低首字响应时间
+    - 适合长文本生成
+    
+    响应格式：
+    - Content-Type: text/event-stream
+    - 每个数据块格式：data: {"content": "文本片段", "done": false}\n\n
+    - 结束标记：data: {"content": "", "done": true}\n\n
+    """
+    try:
+        # 获取客服信息
+        conversation = conversation_service.get_conversation(db, conversation_name)
+        
+        # 检查状态
+        if conversation.status != "online":
+            raise HTTPException(400, f"客服状态异常: {conversation.status}")
+        
+        # 获取智能体名称
+        agent_name = conversation.agent.name
+        
+        # 定义流式生成器
+        async def generate():
+            try:
+                # 获取 RAG Agent
+                rag_agent = rag_manager.get_agent(agent_name)
+                
+                # 发送开始标记
+                yield f"data: {json.dumps({'content': '', 'done': False, 'agent_name': agent_name}, ensure_ascii=False)}\n\n"
+                
+                # 流式生成回答
+                async for chunk in rag_agent.ask_stream(message.content):
+                    if chunk:
+                        data = {
+                            "content": chunk,
+                            "done": False,
+                            "agent_name": agent_name
+                        }
+                        yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+                
+                # 发送结束标记
+                yield f"data: {json.dumps({'content': '', 'done': True, 'agent_name': agent_name}, ensure_ascii=False)}\n\n"
+                
+                # 更新活跃时间
+                conversation_service.update_activity(db, conversation_name)
+                
+            except Exception as e:
+                # 发送错误信息
+                error_data = {
+                    "content": f"抱歉，处理您的问题时出现了错误。",
+                    "done": True,
+                    "error": str(e)
+                }
+                yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+        
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"  # 禁用 Nginx 缓冲
+            }
         )
         
     except HTTPException:

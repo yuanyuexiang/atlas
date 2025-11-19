@@ -13,6 +13,7 @@
 - 💬 **客服管理**: 客服与智能体解耦，支持动态切换和共享智能体
 - 📚 **知识库管理**: 上传文档（PDF/TXT/MD），自动向量化存储到 Milvus
 - 💭 **智能对话**: 基于知识库的 RAG（检索增强生成）智能问答
+- ⚡ **流式响应**: 支持 Server-Sent Events (SSE) 流式输出，类似 ChatGPT 的逐字显示效果
 - 🔄 **动态切换**: 支持白班/夜班智能体切换、A/B 测试、版本升级
 - 📊 **统计分析**: 知识库统计、对话记录、切换历史追踪
 - 🔐 **JWT 认证**: 完整的用户认证和权限管理系统
@@ -733,8 +734,10 @@ curl -X POST "http://localhost:8000/api/conversations" \
 
 #### 步骤 6: 发送消息进行对话
 
+##### 方式 1: 同步响应（传统方式）
+
 ```bash
-# 向客服发送问题
+# 向客服发送问题（等待完整回答）
 curl -X POST "http://localhost:8000/api/chat/legal-chat/message" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -748,6 +751,46 @@ curl -X POST "http://localhost:8000/api/chat/legal-chat/message" \
 {
   "role": "assistant",
   "content": "根据《中华人民共和国民法典》的相关规定，如果对方不履行合同义务，您可以采取以下措施...",
+  "timestamp": "2025-01-19T08:05:00Z",
+  "agent_name": "legal-advisor",
+  "knowledge_base_used": true
+}
+```
+
+##### 方式 2: 流式响应（推荐，类似 ChatGPT）
+
+```bash
+# 向客服发送问题（逐字返回，体验更佳）
+curl -N -X POST "http://localhost:8000/api/chat/legal-chat/message/stream" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "签订合同后，对方不履行义务怎么办？"
+  }'
+```
+
+**流式响应示例**（Server-Sent Events）：
+```
+data: {"content": "", "done": false, "agent_name": "legal-advisor"}
+
+data: {"content": "根据", "done": false, "agent_name": "legal-advisor"}
+
+data: {"content": "《中华人民共和国", "done": false, "agent_name": "legal-advisor"}
+
+data: {"content": "民法典》", "done": false, "agent_name": "legal-advisor"}
+
+data: {"content": "的相关规定", "done": false, "agent_name": "legal-advisor"}
+
+...
+
+data: {"content": "", "done": true, "agent_name": "legal-advisor"}
+```
+
+**流式响应优势**：
+- ✅ **逐字显示**: 类似 ChatGPT 的打字效果
+- ✅ **首字响应快**: 无需等待完整生成
+- ✅ **用户体验好**: 降低等待焦虑感
+- ✅ **适合长文本**: 长回答也能快速开始显示
   "timestamp": "2025-01-19T08:05:00Z",
   "agent_name": "legal-advisor",
   "knowledge_base_used": true
