@@ -20,12 +20,11 @@ services:
       - matrix-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.atlas.rule=Host(`atlas.matrix-net.tech`)" # 替换为你的域名
+      - "traefik.http.routers.atlas.rule=Host(`atlas.matrix-net.tech`) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/health`) || PathPrefix(`/redoc`))" # 替换为你的域名
       - "traefik.http.routers.atlas.entrypoints=websecure"
       - "traefik.http.routers.atlas.service=atlas"
       - "traefik.http.routers.atlas.tls.certresolver=dnspodresolver"
       - "traefik.http.services.atlas.loadbalancer.server.port=8000"
-
 networks:
   matrix-network:
     external: true
