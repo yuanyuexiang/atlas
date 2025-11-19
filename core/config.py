@@ -13,6 +13,9 @@ class Settings:
     APP_NAME: str = "Echo 智能客服后端系统"
     VERSION: str = "0.2.0"
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
+
+    # 反向代理根路径配置（用于 Nginx 等反向代理场景）
+    ROOT_PATH: str = "/atlas"  # 应用部署在 /atlas 路径下
     
     # API 配置
     API_PREFIX: str = "/api"

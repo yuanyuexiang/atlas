@@ -1,5 +1,10 @@
 # API 认证使用指南
 
+> ⚠️ **重要**: 应用配置了 ROOT_PATH="/atlas"，所有 API 路径需加上 `/atlas` 前缀  
+> - 本地: `http://localhost:8000/atlas/api/*`  
+> - 生产: `https://atlas.matrix-net.tech/atlas/api/*`  
+> 详见 [根路径配置说明](ROOT_PATH_GUIDE.md)
+
 ## 🔐 认证概述
 
 Echo 智能客服系统现已启用 **JWT（JSON Web Token）认证保护**，所有主要 API 端点都需要有效的身份验证令牌才能访问。
@@ -24,7 +29,7 @@ Echo 智能客服系统现已启用 **JWT（JSON Web Token）认证保护**，�
 ### 1. 用户注册
 
 ```bash
-curl -X POST "http://localhost:8000/api/auth/register" \
+curl -X POST "http://localhost:8000/atlas/api/auth/register" \
   -H "Content-Type: application/json" \
   -d '{
     "username": "myuser",
@@ -50,7 +55,7 @@ curl -X POST "http://localhost:8000/api/auth/register" \
 ### 2. 用户登录（获取 Token）
 
 ```bash
-curl -X POST "http://localhost:8000/api/auth/login" \
+curl -X POST "http://localhost:8000/atlas/api/auth/login" \
   -H "Content-Type: application/json" \
   -d '{
     "username": "myuser",
@@ -78,11 +83,11 @@ curl -X POST "http://localhost:8000/api/auth/login" \
 TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
 # 访问智能体列表
-curl "http://localhost:8000/api/agents" \
+curl "http://localhost:8000/atlas/api/agents" \
   -H "Authorization: Bearer $TOKEN"
 
 # 创建智能体
-curl -X POST "http://localhost:8000/api/agents" \
+curl -X POST "http://localhost:8000/atlas/api/agents" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -95,7 +100,7 @@ curl -X POST "http://localhost:8000/api/agents" \
 ### 4. 刷新 Token
 
 ```bash
-curl -X POST "http://localhost:8000/api/auth/refresh" \
+curl -X POST "http://localhost:8000/atlas/api/auth/refresh" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -113,7 +118,7 @@ curl -X POST "http://localhost:8000/api/auth/refresh" \
 ## 🔑 修改密码
 
 ```bash
-curl -X PUT "http://localhost:8000/api/auth/me" \
+curl -X PUT "http://localhost:8000/atlas/api/auth/me" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -144,14 +149,14 @@ curl -X PUT "http://localhost:8000/api/auth/me" \
 ### 查看所有用户
 
 ```bash
-curl "http://localhost:8000/api/users" \
+curl "http://localhost:8000/atlas/api/users" \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
 ### 创建新用户
 
 ```bash
-curl -X POST "http://localhost:8000/api/users" \
+curl -X POST "http://localhost:8000/atlas/api/users" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -165,7 +170,7 @@ curl -X POST "http://localhost:8000/api/users" \
 ### 升级用户为管理员
 
 ```bash
-curl -X PUT "http://localhost:8000/api/users/{user_id}" \
+curl -X PUT "http://localhost:8000/atlas/api/users/{user_id}" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

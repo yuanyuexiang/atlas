@@ -1,5 +1,10 @@
 # Echo 智能客服后端系统 - 使用指南
 
+> ⚠️ **重要**: 应用配置了 ROOT_PATH="/atlas"，所有 API 路径需加上 `/atlas` 前缀  
+> - 本地开发: `http://localhost:8000/atlas/api/*`  
+> - 生产环境: `https://atlas.matrix-net.tech/atlas/api/*`  
+> 详见 [根路径配置说明](ROOT_PATH_GUIDE.md)
+
 ## 快速开始
 
 ### 1. 启动服务器
@@ -24,7 +29,7 @@
 ### 步骤 1: 创建智能体（Agent）
 
 ```bash
-curl -X POST http://localhost:8000/api/agents \
+curl -X POST http://localhost:8000/atlas/api/agents \
   -H "Content-Type: application/json" \
   -d '{
     "name": "customer_service_agent",
@@ -71,7 +76,7 @@ cat > service_guide.txt << EOF
 EOF
 
 # 上传文档
-curl -X POST http://localhost:8000/api/knowledge-base/customer_service_agent/documents \
+curl -X POST http://localhost:8000/atlas/api/knowledge-base/customer_service_agent/documents \
   -F "file=@service_guide.txt"
 ```
 
@@ -88,7 +93,7 @@ curl -X POST http://localhost:8000/api/knowledge-base/customer_service_agent/doc
 ### 步骤 3: 查看知识库统计
 
 ```bash
-curl http://localhost:8000/api/knowledge-base/customer_service_agent/stats
+curl http://localhost:8000/atlas/api/knowledge-base/customer_service_agent/stats
 ```
 
 **响应示例：**
@@ -119,7 +124,7 @@ curl http://localhost:8000/api/knowledge-base/customer_service_agent/stats
 ### 步骤 4: 创建对话（Conversation）
 
 ```bash
-curl -X POST http://localhost:8000/api/conversations \
+curl -X POST http://localhost:8000/atlas/api/conversations \
   -H "Content-Type: application/json" \
   -d '{
     "name": "customer_conv_001",
@@ -153,14 +158,14 @@ curl -X POST http://localhost:8000/api/conversations \
 
 ```bash
 # 发送第一条消息
-curl -X POST http://localhost:8000/api/chat/customer_conv_001/message \
+curl -X POST http://localhost:8000/atlas/api/chat/customer_conv_001/message \
   -H "Content-Type: application/json" \
   -d '{
     "content": "你们提供哪些服务？"
   }'
 
 # 发送第二条消息
-curl -X POST http://localhost:8000/api/chat/customer_conv_001/message \
+curl -X POST http://localhost:8000/atlas/api/chat/customer_conv_001/message \
   -H "Content-Type: application/json" \
   -d '{
     "content": "客服电话是多少？"
@@ -182,25 +187,25 @@ curl -X POST http://localhost:8000/api/chat/customer_conv_001/message \
 
 ```bash
 # 列出所有智能体
-curl http://localhost:8000/api/agents
+curl http://localhost:8000/atlas/api/agents
 
 # 获取特定智能体详情
-curl http://localhost:8000/api/agents/customer_service_agent
+curl http://localhost:8000/atlas/api/agents/customer_service_agent
 
 # 停用智能体
-curl -X POST http://localhost:8000/api/agents/customer_service_agent/deactivate
+curl -X POST http://localhost:8000/atlas/api/agents/customer_service_agent/deactivate
 
 # 激活智能体
-curl -X POST http://localhost:8000/api/agents/customer_service_agent/activate
+curl -X POST http://localhost:8000/atlas/api/agents/customer_service_agent/activate
 
 # 列出所有对话
-curl http://localhost:8000/api/conversations
+curl http://localhost:8000/atlas/api/conversations
 
 # 获取对话详情
-curl http://localhost:8000/api/conversations/customer_conv_001
+curl http://localhost:8000/atlas/api/conversations/customer_conv_001
 
 # 切换对话使用的智能体
-curl -X POST http://localhost:8000/api/conversations/customer_conv_001/switch-agent \
+curl -X POST http://localhost:8000/atlas/api/conversations/customer_conv_001/switch-agent \
   -H "Content-Type: application/json" \
   -d '{
     "new_agent_name": "another_agent",
@@ -208,13 +213,13 @@ curl -X POST http://localhost:8000/api/conversations/customer_conv_001/switch-ag
   }'
 
 # 查看智能体切换历史
-curl http://localhost:8000/api/conversations/customer_conv_001/agent-history
+curl http://localhost:8000/atlas/api/conversations/customer_conv_001/agent-history
 
 # 删除对话历史
-curl -X DELETE http://localhost:8000/api/chat/customer_conv_001/history
+curl -X DELETE http://localhost:8000/atlas/api/chat/customer_conv_001/history
 
 # 清空知识库
-curl -X DELETE http://localhost:8000/api/knowledge-base/customer_service_agent/clear
+curl -X DELETE http://localhost:8000/atlas/api/knowledge-base/customer_service_agent/clear
 ```
 
 ## 支持的文件类型

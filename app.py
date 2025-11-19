@@ -36,6 +36,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.VERSION,
+    root_path=settings.ROOT_PATH,
     description="""
     ## Echo 智能客服后端系统
     

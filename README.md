@@ -7,6 +7,11 @@
 [![Milvus](https://img.shields.io/badge/Milvus-2.3+-orange.svg)](https://milvus.io/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
+> 🌐 **重要提示**: 应用部署在 `/atlas` 子路径下  
+> 生产环境访问地址: `https://atlas.matrix-net.tech/atlas/api/*`  
+> 本地开发访问地址: `http://localhost:8000/atlas/api/*`  
+> 详见 [根路径配置说明](ROOT_PATH_GUIDE.md)
+
 ## ✨ 核心特性
 
 - 🤖 **智能体管理**: 创建和管理多个 AI 智能体，支持不同领域（通用、法律、医疗、金融等）
@@ -18,6 +23,7 @@
 - 📊 **统计分析**: 知识库统计、对话记录、切换历史追踪
 - 🔐 **JWT 认证**: 完整的用户认证和权限管理系统
 - 🐳 **Docker 部署**: 开箱即用的容器化部署方案
+- 🌐 **反向代理支持**: 应用部署在 `/atlas` 子路径，支持 Nginx 等反向代理
 
 ## 💡 项目功能原理
 
@@ -509,9 +515,9 @@ uv run uvicorn app:app --host 0.0.0.0 --port 8000 --workers 4
 启动成功后，访问以下地址：
 
 - 🏠 **主页**: http://localhost:8000
-- 📚 **Swagger UI**: http://localhost:8000/docs（交互式 API 文档）
-- 📖 **ReDoc**: http://localhost:8000/redoc（美观的 API 文档）
-- ❤️ **健康检查**: http://localhost:8000/health
+- 📚 **Swagger UI**: http://localhost:8000/atlas/docs（交互式 API 文档）
+- 📖 **ReDoc**: http://localhost:8000/atlas/redoc（美观的 API 文档）
+- ❤️ **健康检查**: http://localhost:8000/atlas/health
 
 ### 方式二：Docker 部署
 
@@ -571,7 +577,7 @@ docker run -d \
 #### 1. 注册新用户（可选）
 
 ```bash
-curl -X POST "http://localhost:8000/api/auth/register" \
+curl -X POST "http://localhost:8000/atlas/api/auth/register" \
   -H "Content-Type: application/json" \
   -d '{
     "username": "testuser",
@@ -585,7 +591,7 @@ curl -X POST "http://localhost:8000/api/auth/register" \
 
 ```bash
 # 登录并获取 Token
-TOKEN=$(curl -s -X POST "http://localhost:8000/api/auth/login" \
+TOKEN=$(curl -s -X POST "http://localhost:8000/atlas/api/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin123"}' \
   | jq -r '.access_token')
@@ -607,14 +613,14 @@ echo "Token: $TOKEN"
 所有需要认证的 API 都需要在请求头中携带 Token：
 
 ```bash
-curl "http://localhost:8000/api/agents" \
+curl "http://localhost:8000/atlas/api/agents" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
 #### 4. 获取当前用户信息
 
 ```bash
-curl "http://localhost:8000/api/auth/me" \
+curl "http://localhost:8000/atlas/api/auth/me" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -649,7 +655,7 @@ curl "http://localhost:8000/api/auth/me" \
 
 ```bash
 # 登录并保存 Token
-TOKEN=$(curl -s -X POST "http://localhost:8000/api/auth/login" \
+TOKEN=$(curl -s -X POST "http://localhost:8000/atlas/api/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin123"}' \
   | jq -r '.access_token')
@@ -659,7 +665,7 @@ TOKEN=$(curl -s -X POST "http://localhost:8000/api/auth/login" \
 
 ```bash
 # 创建一个法律领域的智能体
-curl -X POST "http://localhost:8000/api/agents" \
+curl -X POST "http://localhost:8000/atlas/api/agents" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -693,7 +699,7 @@ curl -X POST "http://localhost:8000/api/agents" \
 
 ```bash
 # 上传法律法规文档（准备好 PDF/TXT/MD 文件）
-curl -X POST "http://localhost:8000/api/knowledge-base/legal-advisor/documents" \
+curl -X POST "http://localhost:8000/atlas/api/knowledge-base/legal-advisor/documents" \
   -H "Authorization: Bearer $TOKEN" \
   -F "file=@/path/to/your/document.pdf"
 ```
@@ -712,7 +718,7 @@ curl -X POST "http://localhost:8000/api/knowledge-base/legal-advisor/documents" 
 
 ```bash
 # 查看知识库信息
-curl "http://localhost:8000/api/knowledge-base/legal-advisor/stats" \
+curl "http://localhost:8000/atlas/api/knowledge-base/legal-advisor/stats" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -720,7 +726,7 @@ curl "http://localhost:8000/api/knowledge-base/legal-advisor/stats" \
 
 ```bash
 # 创建客服并绑定智能体
-curl -X POST "http://localhost:8000/api/conversations" \
+curl -X POST "http://localhost:8000/atlas/api/conversations" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -738,7 +744,7 @@ curl -X POST "http://localhost:8000/api/conversations" \
 
 ```bash
 # 向客服发送问题（等待完整回答）
-curl -X POST "http://localhost:8000/api/chat/legal-chat/message" \
+curl -X POST "http://localhost:8000/atlas/api/chat/legal-chat/message" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -761,7 +767,7 @@ curl -X POST "http://localhost:8000/api/chat/legal-chat/message" \
 
 ```bash
 # 向客服发送问题（逐字返回，体验更佳）
-curl -N -X POST "http://localhost:8000/api/chat/legal-chat/message/stream" \
+curl -N -X POST "http://localhost:8000/atlas/api/chat/legal-chat/message/stream" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -803,7 +809,7 @@ data: {"content": "", "done": true, "agent_name": "legal-advisor"}
 
 ```bash
 # 切换客服绑定的智能体
-curl -X POST "http://localhost:8000/api/conversations/legal-chat/switch-agent" \
+curl -X POST "http://localhost:8000/atlas/api/conversations/legal-chat/switch-agent" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -816,7 +822,7 @@ curl -X POST "http://localhost:8000/api/conversations/legal-chat/switch-agent" \
 
 ```bash
 # 获取所有活跃的法律类智能体
-curl "http://localhost:8000/api/agents?status=active&agent_type=legal" \
+curl "http://localhost:8000/atlas/api/agents?status=active&agent_type=legal" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -824,7 +830,7 @@ curl "http://localhost:8000/api/agents?status=active&agent_type=legal" \
 
 ```bash
 # 清空客服的对话历史
-curl -X DELETE "http://localhost:8000/api/chat/legal-chat/history" \
+curl -X DELETE "http://localhost:8000/atlas/api/chat/legal-chat/history" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -832,7 +838,7 @@ curl -X DELETE "http://localhost:8000/api/chat/legal-chat/history" \
 
 ```bash
 # 重建知识库，只保留指定文档
-curl -X POST "http://localhost:8000/api/knowledge-base/legal-advisor/rebuild" \
+curl -X POST "http://localhost:8000/atlas/api/knowledge-base/legal-advisor/rebuild" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -862,7 +868,7 @@ curl -X POST "http://localhost:8000/api/knowledge-base/legal-advisor/rebuild" \
 ```bash
 #!/bin/bash
 
-BASE_URL="http://localhost:8000/api"
+BASE_URL="http://localhost:8000/atlas/api"
 
 # 1. 登录
 echo "1. 登录..."

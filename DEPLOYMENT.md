@@ -1,5 +1,8 @@
 # 部署指南
 
+> ⚠️ **重要**: 应用配置了 ROOT_PATH="/atlas"，所有访问路径需加上 `/atlas` 前缀  
+> 详见 [根路径配置说明](ROOT_PATH_GUIDE.md)
+
 ## 🔧 系统要求
 
 - Docker 20.10+
@@ -109,7 +112,7 @@ docker-compose down
 curl http://localhost:8000/health
 
 # 登录测试
-curl -X POST http://localhost:8000/api/auth/login \
+curl -X POST http://localhost:8000/atlas/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin123"}'
 
@@ -144,7 +147,7 @@ docker ps
 
 - **修改默认管理员密码**：
   ```bash
-  curl -X PUT http://localhost:8000/api/users/me/password \
+  curl -X PUT http://localhost:8000/atlas/api/users/me/password \
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
     -d '{"old_password":"admin123","new_password":"your-strong-password"}'
