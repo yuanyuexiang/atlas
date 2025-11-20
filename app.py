@@ -2,7 +2,7 @@
 FastAPI 主应用
 Echo 智能客服后端系统
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from core.config import settings
@@ -36,7 +36,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.VERSION,
-    root_path=settings.ROOT_PATH,
     description="""
     ## Echo 智能客服后端系统
     
@@ -64,8 +63,8 @@ app = FastAPI(
     - SQLite: 关系数据库
     """,
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc"
+    docs_url=None,  # 禁用默认文档路由
+    redoc_url=None  # 禁用默认 ReDoc 路由
 )
 
 # 配置 CORS
@@ -77,28 +76,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 注册路由
-app.include_router(auth.router, prefix=settings.API_PREFIX)
-app.include_router(users.router, prefix=settings.API_PREFIX)
-app.include_router(agents.router, prefix=settings.API_PREFIX)
-app.include_router(conversations.router, prefix=settings.API_PREFIX)
-app.include_router(knowledge_base.router, prefix=settings.API_PREFIX)
-app.include_router(chat.router, prefix=settings.API_PREFIX)
+# 创建主路由器，挂载到 /atlas 路径
+atlas_router = APIRouter(prefix=settings.ROOT_PATH)
+
+# 注册 API 路由到主路由器
+atlas_router.include_router(auth.router, prefix=settings.API_PREFIX)
+atlas_router.include_router(users.router, prefix=settings.API_PREFIX)
+atlas_router.include_router(agents.router, prefix=settings.API_PREFIX)
+atlas_router.include_router(conversations.router, prefix=settings.API_PREFIX)
+atlas_router.include_router(knowledge_base.router, prefix=settings.API_PREFIX)
+atlas_router.include_router(chat.router, prefix=settings.API_PREFIX)
 
 
-@app.get("/", tags=["系统"])
+@atlas_router.get("/", tags=["系统"])
 async def root():
     """根路径 - 系统信息"""
     return {
         "name": settings.APP_NAME,
         "version": settings.VERSION,
         "status": "running",
-        "docs": "/docs",
-        "api_prefix": settings.API_PREFIX
+        "docs": f"{settings.ROOT_PATH}/docs",
+        "api_prefix": f"{settings.ROOT_PATH}{settings.API_PREFIX}",
+        "root_path": settings.ROOT_PATH
     }
 
 
-@app.get("/health", tags=["系统"])
+@atlas_router.get("/health", tags=["系统"])
 async def health_check():
     """健康检查"""
     try:
@@ -119,20 +122,21 @@ async def health_check():
         }
 
 
-@app.get(f"{settings.API_PREFIX}/info", tags=["系统"])
+@atlas_router.get(f"{settings.API_PREFIX}/info", tags=["系统"])
 async def api_info():
     """API 信息"""
     return {
         "app_name": settings.APP_NAME,
         "version": settings.VERSION,
-        "api_prefix": settings.API_PREFIX,
+        "root_path": settings.ROOT_PATH,
+        "api_prefix": f"{settings.ROOT_PATH}{settings.API_PREFIX}",
         "endpoints": {
-            "auth": f"{settings.API_PREFIX}/auth",
-            "users": f"{settings.API_PREFIX}/users",
-            "agents": f"{settings.API_PREFIX}/agents",
-            "conversations": f"{settings.API_PREFIX}/conversations",
-            "knowledge_base": f"{settings.API_PREFIX}/knowledge-base",
-            "chat": f"{settings.API_PREFIX}/chat"
+            "auth": f"{settings.ROOT_PATH}{settings.API_PREFIX}/auth",
+            "users": f"{settings.ROOT_PATH}{settings.API_PREFIX}/users",
+            "agents": f"{settings.ROOT_PATH}{settings.API_PREFIX}/agents",
+            "conversations": f"{settings.ROOT_PATH}{settings.API_PREFIX}/conversations",
+            "knowledge_base": f"{settings.ROOT_PATH}{settings.API_PREFIX}/knowledge-base",
+            "chat": f"{settings.ROOT_PATH}{settings.API_PREFIX}/chat"
         },
         "features": {
             "authentication": "JWT",
@@ -141,6 +145,43 @@ async def api_info():
             "web_framework": "FastAPI"
         }
     }
+
+
+# 将主路由器挂载到应用
+app.include_router(atlas_router)
+
+# 挂载文档到 /atlas/docs 和 /atlas/redoc
+from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
+from fastapi.openapi.utils import get_openapi
+from fastapi import Request
+
+@app.get(f"{settings.ROOT_PATH}/docs", include_in_schema=False)
+async def custom_swagger_ui_html(req: Request):
+    """自定义 Swagger UI"""
+    return get_swagger_ui_html(
+        openapi_url=f"{settings.ROOT_PATH}/openapi.json",
+        title=f"{settings.APP_NAME} - Swagger UI",
+        swagger_favicon_url="https://fastapi.tiangolo.com/img/favicon.png"
+    )
+
+@app.get(f"{settings.ROOT_PATH}/redoc", include_in_schema=False)
+async def custom_redoc_html(req: Request):
+    """自定义 ReDoc"""
+    return get_redoc_html(
+        openapi_url=f"{settings.ROOT_PATH}/openapi.json",
+        title=f"{settings.APP_NAME} - ReDoc",
+        redoc_favicon_url="https://fastapi.tiangolo.com/img/favicon.png"
+    )
+
+@app.get(f"{settings.ROOT_PATH}/openapi.json", include_in_schema=False)
+async def custom_openapi():
+    """自定义 OpenAPI Schema"""
+    return get_openapi(
+        title=settings.APP_NAME,
+        version=settings.VERSION,
+        description=app.description,
+        routes=app.routes,
+    )
 
 
 if __name__ == "__main__":
