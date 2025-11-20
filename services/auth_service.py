@@ -59,12 +59,15 @@ def decode_token(token: str) -> TokenData:
         if username is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="无效的认证凭证",
+                detail="无效的认证凭证：username 为空",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
         return TokenData(username=username, user_id=user_id)
-    except JWTError:
+    except JWTError as e:
+        # 添加详细错误信息用于调试
+        error_detail = f"Token 解码失败: {str(e)}"
+        print(f"[JWT Error] {error_detail}")  # 输出到日志
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="无效的认证凭证",
@@ -78,22 +81,32 @@ def get_current_user(
 ) -> User:
     """获取当前用户（依赖注入）"""
     token = credentials.credentials
+    
+    # 记录 token 前缀用于调试
+    print(f"[Auth] 收到 token: {token[:20]}...")
+    
     token_data = decode_token(token)
+    
+    # 记录解码后的用户信息
+    print(f"[Auth] Token 解码成功，用户名: {token_data.username}, 用户ID: {token_data.user_id}")
     
     user = db.query(User).filter(User.username == token_data.username).first()
     if user is None:
+        print(f"[Auth] 数据库中未找到用户: {token_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户不存在",
+            detail=f"用户不存在: {token_data.username}",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
     if not user.is_active:
+        print(f"[Auth] 用户已被禁用: {token_data.username}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="用户已被禁用"
         )
     
+    print(f"[Auth] 认证成功: {user.username}")
     return user
 
 

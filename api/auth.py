@@ -119,3 +119,21 @@ async def refresh_token(current_user: User = Depends(get_current_user)):
         "token_type": "bearer",
         "expires_in": auth_settings.access_token_expire_minutes * 60
     }
+
+
+@router.get("/debug/jwt-config")
+async def debug_jwt_config():
+    """
+    调试端点：显示当前 JWT 配置（仅用于排查问题）
+    生产环境应该移除此端点
+    """
+    import hashlib
+    secret_hash = hashlib.md5(auth_settings.secret_key.encode()).hexdigest()
+    
+    return {
+        "algorithm": auth_settings.algorithm,
+        "access_token_expire_minutes": auth_settings.access_token_expire_minutes,
+        "secret_key_md5": secret_hash,  # 只显示 hash，不暴露真实密钥
+        "secret_key_length": len(auth_settings.secret_key),
+        "message": "请对比本地和云上此值是否一致"
+    }

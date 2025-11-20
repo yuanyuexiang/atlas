@@ -10,9 +10,10 @@ services:
       - DATABASE_URL=postgresql://postgres:p0stgr3s@postgres:5432/atlas
       - MILVUS_HOST=milvus-standalone
       - MILVUS_PORT=19530
-      - OPENAI_API_KEY="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"
-      - OPENAI_BASE_URL="https://openrouter.ai/api/v1"
-      - JWT_SECRET_KEY="matrix-net-tech"
+      - OPENAI_API_KEY=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
+      - OPENAI_BASE_URL=https://openrouter.ai/api/v1
+      - JWT_SECRET_KEY=matrix-net-tech
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
     volumes:
       - ./metadata_store:/app/metadata_store
       - ./uploads:/app/uploads
