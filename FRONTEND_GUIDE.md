@@ -474,6 +474,8 @@ Authorization: Bearer {token}
 
 ## 4. 知识库管理 `/api/knowledge-base`
 
+> ✅ **功能状态**: 已测试验证，所有接口正常工作（2025-01-21）
+
 ### 4.1 上传文档
 
 ```http
@@ -510,6 +512,11 @@ fetch('https://atlas.matrix-net.tech/atlas/api/knowledge-base/customer-service/d
 - 最大文件大小：10MB
 - 支持格式：PDF、TXT、MD
 
+**注意事项**：
+- ⚠️ 新创建的智能体需要等待 Milvus 初始化 collection（约 1-3 秒）
+- ✅ 上传后文档会自动进行文本切分和向量化
+- 📊 可通过统计接口查看处理进度
+
 ### 4.2 获取文档列表
 
 ```http
@@ -537,6 +544,15 @@ Authorization: Bearer {token}
 ```http
 DELETE https://atlas.matrix-net.tech/atlas/api/knowledge-base/{agent_name}/documents/{file_id}
 Authorization: Bearer {token}
+```
+
+**响应**：
+```json
+{
+  "success": true,
+  "message": "文档删除成功",
+  "file_id": "doc_20250119_001"
+}
 ```
 
 **注意**：由于 Milvus Lite 的删除限制，建议使用"重建知识库"功能。
@@ -1713,20 +1729,22 @@ Access-Control-Allow-Headers: Authorization, Content-Type
 
 ```bash
 # OpenAI API
-OPENAI_API_KEY=your-key
+OPENAI_API_KEY=your-openai-api-key
 OPENAI_BASE_URL=https://openrouter.ai/api/v1
 
 # 数据库
-DATABASE_URL=postgresql://postgres:p0stgr3s@117.72.204.201:5432/atlas
+DATABASE_URL=postgresql://user:password@host:5432/atlas
 
-# Milvus
-MILVUS_HOST=117.72.204.201
+# Milvus 向量数据库
+MILVUS_HOST=your-milvus-host
 MILVUS_PORT=19530
 
-# JWT
-JWT_SECRET_KEY=your-secret-key
+# JWT 认证配置
+JWT_SECRET_KEY=your-secret-key-here
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
 ```
+
+> ⚠️ **安全提示**: 以上为示例配置，实际部署时请使用安全的密钥和连接信息。
 
 ### D. 在线文档
 
@@ -1764,6 +1782,7 @@ curl https://atlas.matrix-net.tech/atlas/health
 
 ---
 
-**文档版本**: v0.2.0  
-**最后更新**: 2025-01-19  
-**后端 API 版本**: v0.2.0
+**文档版本**: v0.2.1  
+**最后更新**: 2025-01-21  
+**后端 API 版本**: v0.2.0  
+**更新说明**: JWT 认证调试完成，知识库功能已验证
