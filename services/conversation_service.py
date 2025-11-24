@@ -62,20 +62,16 @@ class ConversationService:
         status: Optional[str] = None,
         skip: int = 0,
         limit: int = 100
-    ) -> dict:
+    ) -> list:
         """获取客服列表"""
         query = db.query(Conversation)
         
         if status:
             query = query.filter(Conversation.status == ConversationStatus(status))
         
-        total = query.count()
         conversations = query.offset(skip).limit(limit).all()
         
-        return {
-            "total": total,
-            "conversations": [self._to_response(c) for c in conversations]
-        }
+        return [self._to_response(c) for c in conversations]
     
     def update_conversation(
         self,

@@ -73,19 +73,29 @@ class RAGAgent:
     
     def ask(self, question: str) -> str:
         """
-        向 Agent 提问（同步方式）
+        向 Agent 提问
         
         Args:
             question: 用户问题
             
         Returns:
-            str: Agent 的回答
+            str: Agent 回答
         """
         try:
             self.chat_history.append(HumanMessage(content=question))
             
             # 从知识库检索
             context = self._retrieve_for_agent(question)
+            
+            # 检查知识库是否为空
+            if context == "未找到相关内容":
+                # 检查知识库是否真的为空
+                stats = self.milvus_store.get_collection_stats(self.agent_name)
+                if stats and stats.get("total_vectors", 0) == 0:
+                    # 知识库为空，返回友好提示
+                    empty_kb_msg = "您好！我是智能客服助手。目前我的知识库还是空的，请管理员先上传相关文档，我才能更好地为您服务。"
+                    self.chat_history.append(AIMessage(content=empty_kb_msg))
+                    return empty_kb_msg
             
             # 构建 Prompt
             prompt_text = f"{self.system_prompt}\n\n知识库内容：\n{context}\n\n用户问题：{question}\n\n请基于知识库内容回答用户问题。"
@@ -120,6 +130,17 @@ class RAGAgent:
             
             # 从知识库检索
             context = self._retrieve_for_agent(question)
+            
+            # 检查知识库是否为空
+            if context == "未找到相关内容":
+                # 检查知识库是否真的为空
+                stats = self.milvus_store.get_collection_stats(self.agent_name)
+                if stats and stats.get("total_vectors", 0) == 0:
+                    # 知识库为空，返回友好提示
+                    empty_kb_msg = "您好！我是智能客服助手。目前我的知识库还是空的，请管理员先上传相关文档，我才能更好地为您服务。"
+                    self.chat_history.append(AIMessage(content=empty_kb_msg))
+                    yield empty_kb_msg
+                    return
             
             # 构建 Prompt
             prompt_text = f"{self.system_prompt}\n\n知识库内容：\n{context}\n\n用户问题：{question}\n\n请基于知识库内容回答用户问题。"

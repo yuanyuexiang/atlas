@@ -67,7 +67,7 @@ class AgentService:
         agent_type: Optional[str] = None,
         skip: int = 0,
         limit: int = 100
-    ) -> dict:
+    ) -> list:
         """获取智能体列表"""
         query = db.query(Agent)
         
@@ -76,13 +76,9 @@ class AgentService:
         if agent_type:
             query = query.filter(Agent.agent_type == AgentType(agent_type))
         
-        total = query.count()
         agents = query.offset(skip).limit(limit).all()
         
-        return {
-            "total": total,
-            "agents": [self._to_response(db, agent) for agent in agents]
-        }
+        return [self._to_response(db, agent) for agent in agents]
     
     def update_agent(
         self,
