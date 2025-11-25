@@ -118,6 +118,8 @@ class ConversationService:
     
     def delete_conversation(self, db: Session, conversation_name: str) -> dict:
         """删除客服 - 支持 name 或 id"""
+        from models.entities import AgentSwitchLog
+        
         # 尝试作为 UUID 查询
         conversation = db.query(Conversation).filter(
             Conversation.id == conversation_name
@@ -132,6 +134,12 @@ class ConversationService:
         if not conversation:
             raise ValueError(f"客服不存在: {conversation_name}")
         
+        # 删除关联的切换日志
+        db.query(AgentSwitchLog).filter(
+            AgentSwitchLog.conversation_id == conversation.id
+        ).delete()
+        
+        # 删除客服
         db.delete(conversation)
         db.commit()
         

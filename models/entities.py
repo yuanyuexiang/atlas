@@ -96,7 +96,7 @@ class AgentSwitchLog(Base):
     __tablename__ = "agent_switch_logs"
     
     id = Column(String(36), primary_key=True)
-    conversation_id = Column(String(36), ForeignKey("conversations.id"))
+    conversation_id = Column(String(36), ForeignKey("conversations.id", ondelete="CASCADE"))
     old_agent_id = Column(String(36))
     new_agent_id = Column(String(36))
     switch_reason = Column(Text)
