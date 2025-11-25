@@ -54,8 +54,14 @@ class AgentService:
         return self._to_response(db, agent)
     
     def get_agent(self, db: Session, agent_name: str) -> AgentResponse:
-        """获取智能体详情"""
-        agent = db.query(Agent).filter(Agent.name == agent_name).first()
+        """获取智能体详情 - 支持 name 或 id"""
+        # 尝试作为 UUID 查询
+        agent = db.query(Agent).filter(Agent.id == agent_name).first()
+        
+        # 如果找不到，尝试作为 name 查询
+        if not agent:
+            agent = db.query(Agent).filter(Agent.name == agent_name).first()
+        
         if not agent:
             raise ValueError(f"智能体不存在: {agent_name}")
         return self._to_response(db, agent)
@@ -86,8 +92,14 @@ class AgentService:
         agent_name: str,
         update_data: AgentUpdate
     ) -> AgentResponse:
-        """更新智能体"""
-        agent = db.query(Agent).filter(Agent.name == agent_name).first()
+        """更新智能体 - 支持 name 或 id"""
+        # 尝试作为 UUID 查询
+        agent = db.query(Agent).filter(Agent.id == agent_name).first()
+        
+        # 如果找不到，尝试作为 name 查询
+        if not agent:
+            agent = db.query(Agent).filter(Agent.name == agent_name).first()
+        
         if not agent:
             raise ValueError(f"智能体不存在: {agent_name}")
         
@@ -110,8 +122,14 @@ class AgentService:
         return self._to_response(db, agent)
     
     def delete_agent(self, db: Session, agent_name: str) -> dict:
-        """删除智能体"""
-        agent = db.query(Agent).filter(Agent.name == agent_name).first()
+        """删除智能体 - 支持 name 或 id"""
+        # 尝试作为 UUID 查询
+        agent = db.query(Agent).filter(Agent.id == agent_name).first()
+        
+        # 如果找不到，尝试作为 name 查询
+        if not agent:
+            agent = db.query(Agent).filter(Agent.name == agent_name).first()
+        
         if not agent:
             raise ValueError(f"智能体不存在: {agent_name}")
         

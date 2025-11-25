@@ -48,10 +48,18 @@ class ConversationService:
         return self._to_response(conversation)
     
     def get_conversation(self, db: Session, conversation_name: str) -> ConversationResponse:
-        """获取客服详情"""
+        """获取客服详情 - 支持 name 或 id"""
+        # 尝试作为 UUID 查询
         conversation = db.query(Conversation).filter(
-            Conversation.name == conversation_name
+            Conversation.id == conversation_name
         ).first()
+        
+        # 如果找不到，尝试作为 name 查询
+        if not conversation:
+            conversation = db.query(Conversation).filter(
+                Conversation.name == conversation_name
+            ).first()
+        
         if not conversation:
             raise ValueError(f"客服不存在: {conversation_name}")
         return self._to_response(conversation)
@@ -79,10 +87,18 @@ class ConversationService:
         conversation_name: str,
         update_data: ConversationUpdate
     ) -> ConversationResponse:
-        """更新客服"""
+        """更新客服 - 支持 name 或 id"""
+        # 尝试作为 UUID 查询
         conversation = db.query(Conversation).filter(
-            Conversation.name == conversation_name
+            Conversation.id == conversation_name
         ).first()
+        
+        # 如果找不到，尝试作为 name 查询
+        if not conversation:
+            conversation = db.query(Conversation).filter(
+                Conversation.name == conversation_name
+            ).first()
+        
         if not conversation:
             raise ValueError(f"客服不存在: {conversation_name}")
         
@@ -101,10 +117,18 @@ class ConversationService:
         return self._to_response(conversation)
     
     def delete_conversation(self, db: Session, conversation_name: str) -> dict:
-        """删除客服"""
+        """删除客服 - 支持 name 或 id"""
+        # 尝试作为 UUID 查询
         conversation = db.query(Conversation).filter(
-            Conversation.name == conversation_name
+            Conversation.id == conversation_name
         ).first()
+        
+        # 如果找不到，尝试作为 name 查询
+        if not conversation:
+            conversation = db.query(Conversation).filter(
+                Conversation.name == conversation_name
+            ).first()
+        
         if not conversation:
             raise ValueError(f"客服不存在: {conversation_name}")
         
@@ -120,11 +144,18 @@ class ConversationService:
         conversation_name: str,
         switch_data: AgentSwitchRequest
     ) -> AgentSwitchResponse:
-        """切换客服使用的智能体"""
-        # 获取客服
+        """切换客服使用的智能体 - 支持 name 或 id"""
+        # 尝试作为 UUID 查询
         conversation = db.query(Conversation).filter(
-            Conversation.name == conversation_name
+            Conversation.id == conversation_name
         ).first()
+        
+        # 如果找不到，尝试作为 name 查询
+        if not conversation:
+            conversation = db.query(Conversation).filter(
+                Conversation.name == conversation_name
+            ).first()
+        
         if not conversation:
             raise ValueError(f"客服不存在: {conversation_name}")
         
