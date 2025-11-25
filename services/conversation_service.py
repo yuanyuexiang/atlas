@@ -102,8 +102,24 @@ class ConversationService:
         if not conversation:
             raise ValueError(f"客服不存在: {conversation_name}")
         
-        # 更新字段
-        for field, value in update_data.dict(exclude_unset=True).items():
+        # 处理智能体关联
+        update_dict = update_data.dict(exclude_unset=True)
+        if "agent_name" in update_dict:
+            agent_name = update_dict.pop("agent_name")
+            if agent_name:
+                # 查找智能体（支持 UUID 或 name）
+                agent = db.query(Agent).filter(Agent.id == agent_name).first()
+                if not agent:
+                    agent = db.query(Agent).filter(Agent.name == agent_name).first()
+                if not agent:
+                    raise ValueError(f"智能体不存在: {agent_name}")
+                conversation.agent_id = agent.id
+            else:
+                # 如果 agent_name 为空字符串或 None，清除关联
+                conversation.agent_id = None
+        
+        # 更新其他字段
+        for field, value in update_dict.items():
             if field == "status":
                 value = ConversationStatus(value)
             setattr(conversation, field, value)

@@ -70,6 +70,7 @@ class ConversationUpdate(BaseModel):
     """更新客服请求"""
     display_name: Optional[str] = None
     avatar: Optional[str] = None
+    agent_name: Optional[str] = None  # 关联的智能体名称
     status: Optional[str] = None
     welcome_message: Optional[str] = None
     description: Optional[str] = None
