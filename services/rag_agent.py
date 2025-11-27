@@ -222,6 +222,7 @@ class RAGAgent:
             # 批量添加到 Milvus
             batch_size = 50
             total_added = 0
+            failed_batches = []
             
             for i in range(0, len(splits), batch_size):
                 batch = splits[i:i + batch_size]
@@ -230,9 +231,25 @@ class RAGAgent:
                     total_added += len(batch)
                     print(f"  进度: {total_added}/{len(splits)}")
                 except Exception as e:
-                    print(f"  ⚠️ 批次 {i//batch_size + 1} 失败: {e}")
+                    error_msg = str(e)
+                    print(f"  ⚠️ 批次 {i//batch_size + 1} 失败: {error_msg}")
+                    failed_batches.append((i//batch_size + 1, error_msg))
             
-            print(f"✅ 成功添加 {total_added} 个向量")
+            # 检查是否有向量成功添加
+            if total_added == 0:
+                error_details = "\n".join([f"批次{batch}: {err}" for batch, err in failed_batches])
+                raise Exception(
+                    f"向量化失败：所有文本块都未能添加到向量数据库。\n"
+                    f"可能原因：\n"
+                    f"1. Embedding API 配置错误或 API Key 无效\n"
+                    f"2. 网络连接问题\n"
+                    f"3. 向量数据库连接异常\n"
+                    f"详细错误：\n{error_details}"
+                )
+            
+            print(f"✅ 成功添加 {total_added}/{len(splits)} 个向量")
+            if failed_batches:
+                print(f"⚠️ 失败 {len(failed_batches)} 个批次")
             
             # 保存元数据
             files_meta = self._load_files_meta()

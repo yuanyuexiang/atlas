@@ -12,6 +12,7 @@ from core.database import get_db
 from core.config import settings
 import os
 import shutil
+import uuid
 
 router = APIRouter(prefix="/knowledge-base", tags=["知识库管理"])
 rag_manager = get_rag_manager()
@@ -47,7 +48,9 @@ async def upload_document(
         upload_dir = settings.UPLOAD_DIR
         os.makedirs(upload_dir, exist_ok=True)
         
-        temp_path = os.path.join(upload_dir, f"{agent_name}_{file.filename}")
+        # 使用短UUID避免文件名冲突，保持原始文件名
+        file_id = str(uuid.uuid4())[:8]
+        temp_path = os.path.join(upload_dir, f"{file_id}_{file.filename}")
         
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)

@@ -148,6 +148,8 @@ class MilvusVectorStore:
         
         try:
             collection = Collection(collection_name, using=self.connection_alias)
+            # 刷新数据以确保统计准确
+            collection.flush()
             collection.load()
             
             stats = {
