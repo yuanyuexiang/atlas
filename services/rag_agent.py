@@ -194,25 +194,53 @@ class RAGAgent:
             # 加载文档
             if file_path.endswith('.pdf'):
                 loader = PyPDFLoader(file_path)
+                docs = loader.load()
             elif file_path.endswith(('.txt', '.md')):
-                loader = TextLoader(file_path, encoding='utf-8')
+                # 尝试多种编码加载文本文件
+                docs = None
+                encodings = ['utf-8', 'gbk', 'gb2312', 'gb18030', 'latin-1']
+                
+                for encoding in encodings:
+                    try:
+                        loader = TextLoader(file_path, encoding=encoding)
+                        docs = loader.load()
+                        print(f"  使用 {encoding} 编码加载成功")
+                        break
+                    except Exception as e:
+                        continue
+                
+                if docs is None:
+                    raise ValueError(f"无法加载文件，尝试了所有编码: {encodings}")
             else:
                 raise ValueError(f"不支持的文件类型: {filename}")
             
-            docs = loader.load()
             print(f"  加载了 {len(docs)} 个文档页")
             
             # 分割文本
+            # 注意：Embedding API 限制每个文本 < 512 tokens
+            # 对于中文，1个汉字约等于2个tokens，所以 chunk_size 设为 400 字符比较安全
             text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=800,
-                chunk_overlap=200,
+                chunk_size=400,
+                chunk_overlap=100,
                 add_start_index=True
             )
             splits = text_splitter.split_documents(docs)
             print(f"  分割为 {len(splits)} 个文本块")
             
-            # 添加元数据
+            # 过滤和截断过长的文本块（Embedding API 限制 < 512 tokens）
+            # 对于中文，粗略估计 1个汉字 ≈ 2 tokens，所以限制在 250 字符以内
+            filtered_splits = []
             for split in splits:
+                content = split.page_content
+                if len(content) > 250:
+                    # 截断过长的文本
+                    split.page_content = content[:250] + "..."
+                filtered_splits.append(split)
+            
+            print(f"  过滤后保留 {len(filtered_splits)} 个文本块")
+            
+            # 添加元数据
+            for split in filtered_splits:
                 split.metadata.update({
                     'file_id': file_id,
                     'filename': filename,
@@ -220,16 +248,17 @@ class RAGAgent:
                 })
             
             # 批量添加到 Milvus
-            batch_size = 50
+            # 注意：Embedding API 批次大小限制为 32
+            batch_size = 32
             total_added = 0
             failed_batches = []
             
-            for i in range(0, len(splits), batch_size):
-                batch = splits[i:i + batch_size]
+            for i in range(0, len(filtered_splits), batch_size):
+                batch = filtered_splits[i:i + batch_size]
                 try:
                     self.vector_store.add_documents(batch)
                     total_added += len(batch)
-                    print(f"  进度: {total_added}/{len(splits)}")
+                    print(f"  进度: {total_added}/{len(filtered_splits)}")
                 except Exception as e:
                     error_msg = str(e)
                     print(f"  ⚠️ 批次 {i//batch_size + 1} 失败: {error_msg}")
@@ -247,7 +276,7 @@ class RAGAgent:
                     f"详细错误：\n{error_details}"
                 )
             
-            print(f"✅ 成功添加 {total_added}/{len(splits)} 个向量")
+            print(f"✅ 成功添加 {total_added}/{len(filtered_splits)} 个向量")
             if failed_batches:
                 print(f"⚠️ 失败 {len(failed_batches)} 个批次")
             
