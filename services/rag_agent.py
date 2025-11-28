@@ -288,16 +288,17 @@ class RAGAgent:
             file_id: 文件ID
         """
         try:
-            # Milvus 删除需要通过表达式
-            # 注意：LangChain Milvus 可能不支持直接删除，需要重建或手动操作
-            print(f"⚠️ Milvus 删除功能受限，建议重建知识库")
+            # 先从 Milvus 删除向量数据
+            from services.milvus_service import get_milvus_store
+            milvus_store = get_milvus_store()
+            milvus_store.delete_by_file_id(self.agent_name, file_id)
             
-            # 更新元数据
+            # 再更新元数据
             files_meta = self._load_files_meta()
             files_meta = [f for f in files_meta if f['id'] != file_id]
             self._save_files_meta(files_meta)
             
-            print(f"✅ 已从元数据删除: {file_id}")
+            print(f"✅ 文档已完全删除: {file_id}")
         except Exception as e:
             print(f"❌ 删除文档失败: {e}")
             raise

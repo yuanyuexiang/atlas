@@ -135,6 +135,29 @@ class MilvusVectorStore:
             print(f"❌ 删除 Collection 失败: {e}")
             return False
     
+    def delete_by_file_id(self, agent_name: str, file_id: str) -> bool:
+        """根据 file_id 删除向量"""
+        collection_name = self.get_collection_name(agent_name)
+        
+        if not self.collection_exists(agent_name):
+            print(f"⚠️ Collection 不存在: {collection_name}")
+            return False
+        
+        try:
+            collection = Collection(collection_name, using=self.connection_alias)
+            collection.load()
+            
+            # 使用表达式删除：file_id == "xxx"
+            expr = f'file_id == "{file_id}"'
+            result = collection.delete(expr)
+            collection.flush()
+            
+            print(f"✅ 已删除文件向量: {file_id}, 删除数量: {result.delete_count}")
+            return True
+        except Exception as e:
+            print(f"❌ 删除向量失败: {e}")
+            return False
+    
     def get_collection_stats(self, agent_name: str) -> Dict:
         """获取 Collection 统计信息"""
         collection_name = self.get_collection_name(agent_name)

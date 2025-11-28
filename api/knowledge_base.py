@@ -117,14 +117,19 @@ async def delete_document(
 ):
     """
     删除指定文档
-    
-    注意：Milvus 删除功能受限，建议使用重建知识库功能
     """
     try:
-        # 验证智能体存在
-        agent_service.get_agent(db, agent_name)
+        # 轻量级验证智能体存在（不构建完整响应）
+        from models.entities import Agent
+        agent = db.query(Agent).filter(
+            (Agent.id == agent_name) | (Agent.name == agent_name)
+        ).first()
         
-        result = rag_manager.delete_file(agent_name, file_id)
+        if not agent:
+            raise HTTPException(404, "智能体不存在")
+        
+        # 删除文件（包括向量数据和元数据）
+        result = rag_manager.delete_file(agent.name, file_id)
         return result
     except ValueError as e:
         raise HTTPException(404, str(e))
