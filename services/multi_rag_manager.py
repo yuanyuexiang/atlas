@@ -98,8 +98,16 @@ class MultiRAGManager:
             list: 文件元数据列表
         """
         try:
-            agent = self.get_agent(agent_name)
-            return agent.get_files_meta()
+            # 直接读取元数据文件，避免创建 Agent 实例
+            metadata_dir = os.getenv("METADATA_DIR", "metadata_store")
+            meta_file = os.path.join(metadata_dir, f"{agent_name}.json")
+            
+            if os.path.exists(meta_file):
+                import json
+                with open(meta_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data.get('files', [])
+            return []
         except Exception as e:
             print(f"❌ 获取文件列表失败: {e}")
             return []

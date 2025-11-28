@@ -91,13 +91,19 @@ async def list_documents(
 ):
     """获取智能体的所有文档列表"""
     try:
-        # 验证智能体存在
-        agent_service.get_agent(db, agent_name)
+        # 轻量级验证：只检查智能体是否存在（不构建完整响应）
+        from models.entities import Agent
+        agent = db.query(Agent).filter(
+            (Agent.id == agent_name) | (Agent.name == agent_name)
+        ).first()
+        if not agent:
+            raise HTTPException(404, f"智能体不存在: {agent_name}")
         
-        files = rag_manager.list_files(agent_name)
+        # 直接读取文件列表（已优化，不创建 Agent 实例）
+        files = rag_manager.list_files(agent.name)
         return {"success": True, "data": files}
-    except ValueError as e:
-        raise HTTPException(404, str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, f"查询失败: {str(e)}")
 

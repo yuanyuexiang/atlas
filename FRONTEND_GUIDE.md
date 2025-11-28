@@ -176,6 +176,42 @@ Authorization: Bearer {token}
 
 ---
 
+## ⚠️ 最新更新（2025-11-28）
+
+### 接口变更说明
+
+**1. 列表接口返回格式变更** ✅
+- **影响接口**: `GET /agents` 和 `GET /conversations`
+- **变更**: 直接返回数组而不是分页对象
+- **前端影响**: 如果之前处理的是数组格式，无需修改
+```javascript
+// 现在的响应
+const agents = await response.json();  // 直接是数组
+
+// 之前如果是这样处理的（需要修改）
+const { agents, total } = await response.json();
+```
+
+**2. 客服更新接口新增字段** 🆕
+- **影响接口**: `PUT /conversations/{id}`
+- **新增**: `agent_name` 可选字段，用于更换智能体
+- **前端影响**: 如需支持"更换智能体"功能，可添加此字段
+```javascript
+// 新功能：更新时同时更换智能体
+await updateConversation({
+  display_name: "新名称",
+  agent_name: "new-agent"  // 可选
+});
+```
+
+**3. 知识库功能修复** ✅
+- 修复了文件上传后 chunks_count 为 0 的问题
+- 修复了文件名带智能体前缀的问题
+- 优化了空知识库的友好提示
+- **前端影响**: 无需修改，功能更稳定
+
+---
+
 ## API 接口文档
 
 ### 基础信息
@@ -319,6 +355,22 @@ Authorization: Bearer {token}
 - `skip`: 跳过记录数（分页）
 - `limit`: 返回记录数（最大 1000）
 
+**响应格式**：直接返回数组
+```json
+[
+  {
+    "id": "agent_uuid",
+    "name": "customer-service",
+    "display_name": "智能客服",
+    "agent_type": "general",
+    "status": "active",
+    ...
+  }
+]
+```
+
+> ⚠️ **注意**: 接口直接返回数组，不是分页对象 `{items: [...], total: ...}`
+
 ### 2.3 获取智能体详情
 
 ```http
@@ -408,6 +460,21 @@ Authorization: Bearer {token}
 - `skip`: 跳过记录数
 - `limit`: 返回记录数
 
+**响应格式**：直接返回数组
+```json
+[
+  {
+    "id": "conversation_uuid",
+    "name": "xiaoli",
+    "display_name": "小李",
+    "status": "online",
+    ...
+  }
+]
+```
+
+> ⚠️ **注意**: 接口直接返回数组，不是分页对象
+
 ### 3.3 获取客服详情
 
 ```http
@@ -427,10 +494,35 @@ Authorization: Bearer {token}
 {
   "display_name": "新名称",         // 可选
   "avatar": "🤖",                  // 可选
+  "agent_name": "new-agent",       // 🆕 可选：更换关联的智能体
   "status": "online",              // 可选：online/offline/busy
   "welcome_message": "新欢迎语",    // 可选
   "description": "新描述"           // 可选
 }
+```
+
+**新增功能说明**：
+- `agent_name` 字段用于更换客服关联的智能体
+- 支持传入智能体的 `name` 或 `id` (UUID)
+- 如果不传此字段，保留原有智能体关联
+- 这是除了 `switch-agent` 接口外的另一种切换智能体的方式
+
+**使用示例**：
+```javascript
+// 只修改显示名称，保留原有智能体
+await fetch('/api/conversations/xiaoli', {
+  method: 'PUT',
+  body: JSON.stringify({ display_name: '小李 - 白班' })
+});
+
+// 同时修改名称和切换智能体
+await fetch('/api/conversations/xiaoli', {
+  method: 'PUT',
+  body: JSON.stringify({ 
+    display_name: '小李 - 夜班',
+    agent_name: 'night-shift-agent'
+  })
+});
 ```
 
 ### 3.5 删除客服
@@ -474,7 +566,8 @@ Authorization: Bearer {token}
 
 ## 4. 知识库管理 `/api/knowledge-base`
 
-> ✅ **功能状态**: 已测试验证，所有接口正常工作（2025-01-21）
+> ✅ **功能状态**: 已测试验证，所有接口正常工作（2025-11-28 更新）
+> 🔧 **最近修复**: 修复了向量化失败导致 chunks_count 为 0 的问题
 
 ### 4.1 上传文档
 
@@ -516,6 +609,12 @@ fetch('https://atlas.matrix-net.tech/atlas/api/knowledge-base/customer-service/d
 - ⚠️ 新创建的智能体需要等待 Milvus 初始化 collection（约 1-3 秒）
 - ✅ 上传后文档会自动进行文本切分和向量化
 - 📊 可通过统计接口查看处理进度
+- 🔧 已修复：文件名不再有智能体前缀污染（使用短 UUID）
+- 🔧 已修复：向量化失败问题（API 配置和错误处理优化）
+
+**文件名格式**：
+- 之前：`test_agent_1763997087284_document.txt`（带 agent 前缀）
+- 现在：`a1b2c3d4_document.txt`（短 UUID + 原始文件名）
 
 ### 4.2 获取文档列表
 
@@ -641,6 +740,15 @@ Authorization: Bearer {token}
 **工作流程**：
 ```
 用户消息 → 获取客服关联的智能体 → 检索知识库 → LLM 生成回复 → 返回完整结果
+```
+
+**空知识库友好提示**：
+如果智能体的知识库为空，系统会返回友好提示而不是错误信息：
+```json
+{
+  "content": "您好！我是智能客服助手。目前我的知识库还是空的，请管理员先上传相关文档，我才能更好地为您服务。",
+  "knowledge_base_used": true
+}
 ```
 
 **适用场景**：
@@ -1782,7 +1890,12 @@ curl https://atlas.matrix-net.tech/atlas/health
 
 ---
 
-**文档版本**: v0.2.1  
-**最后更新**: 2025-01-21  
+**文档版本**: v0.2.2  
+**最后更新**: 2025-11-28  
 **后端 API 版本**: v0.2.0  
-**更新说明**: JWT 认证调试完成，知识库功能已验证
+**更新说明**: 
+- 修复文件上传向量化问题
+- 列表接口改为返回数组格式
+- 客服更新接口新增 agent_name 字段
+- 优化空知识库友好提示
+- 修复文件名污染问题
