@@ -12,7 +12,7 @@ services:
       - MILVUS_PORT=19530
       - OPENAI_API_KEY=sk-ispsfhypumyaekrzbklivoyuhinbqmvlfhdnzyilxcojluez
       - OPENAI_BASE_URL=https://api.siliconflow.cn/v1
-      - CHAT_MODEL=openai/gpt-oss-120b
+      - CHAT_MODEL=Qwen/Qwen2.5-7B-Instruct
       - EMBEDDING_MODEL=BAAI/bge-large-zh-v1.5
       - JWT_SECRET_KEY=matrix-net-tech
       - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
