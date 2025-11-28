@@ -5,6 +5,11 @@
 > - 本地开发: `http://localhost:8000/atlas/api/*`  
 > 详细说明请查看 [根路径配置说明](ROOT_PATH_GUIDE.md)
 
+> 🚀 **API UUID 迁移（2025-11-28）**: 所有实体的 CRUD 接口已统一改为使用 UUID 作为路径参数  
+> - **重要变更**: 路径参数从 `{entity_name}` 改为 `{entity_id}` (UUID)  
+> - **影响范围**: Agent、Conversation、Knowledge Base、Chat 共 24 个接口  
+> - **详细指南**: 请查看 [API UUID 迁移指南](API_UUID_MIGRATION.md)
+
 ## 📋 目录
 
 - [系统概述](#系统概述)
@@ -374,16 +379,20 @@ Authorization: Bearer {token}
 ### 2.3 获取智能体详情
 
 ```http
-GET https://atlas.matrix-net.tech/atlas/api/agents/{agent_name}
+GET https://atlas.matrix-net.tech/atlas/api/agents/{agent_id}
 Authorization: Bearer {token}
 ```
+
+> **参数说明**: `agent_id` 是智能体的 UUID，从列表接口或创建接口获取
 
 ### 2.4 更新智能体
 
 ```http
-PUT https://atlas.matrix-net.tech/atlas/api/agents/{agent_name}
+PUT https://atlas.matrix-net.tech/atlas/api/agents/{agent_id}
 Authorization: Bearer {token}
 ```
+
+> **参数说明**: `agent_id` 是智能体的 UUID
 
 **请求体**：
 ```json
@@ -398,9 +407,11 @@ Authorization: Bearer {token}
 ### 2.5 删除智能体
 
 ```http
-DELETE https://atlas.matrix-net.tech/atlas/api/agents/{agent_name}
+DELETE https://atlas.matrix-net.tech/atlas/api/agents/{agent_id}
 Authorization: Bearer {token}
 ```
+
+> **参数说明**: `agent_id` 是智能体的 UUID
 
 **注意**：删除智能体会同时删除其知识库（Milvus collection）。
 
@@ -478,16 +489,20 @@ Authorization: Bearer {token}
 ### 3.3 获取客服详情
 
 ```http
-GET https://atlas.matrix-net.tech/atlas/api/conversations/{conversation_name}
+GET https://atlas.matrix-net.tech/atlas/api/conversations/{conversation_id}
 Authorization: Bearer {token}
 ```
+
+> **参数说明**: `conversation_id` 是客服的 UUID
 
 ### 3.4 更新客服
 
 ```http
-PUT https://atlas.matrix-net.tech/atlas/api/conversations/{conversation_name}
+PUT https://atlas.matrix-net.tech/atlas/api/conversations/{conversation_id}
 Authorization: Bearer {token}
 ```
+
+> **参数说明**: `conversation_id` 是客服的 UUID
 
 **请求体**：
 ```json
@@ -528,16 +543,20 @@ await fetch('/api/conversations/xiaoli', {
 ### 3.5 删除客服
 
 ```http
-DELETE https://atlas.matrix-net.tech/atlas/api/conversations/{conversation_name}
+DELETE https://atlas.matrix-net.tech/atlas/api/conversations/{conversation_id}
 Authorization: Bearer {token}
 ```
+
+> **参数说明**: `conversation_id` 是客服的 UUID
 
 ### 3.6 切换智能体
 
 ```http
-POST https://atlas.matrix-net.tech/atlas/api/conversations/{conversation_name}/switch-agent
+POST https://atlas.matrix-net.tech/atlas/api/conversations/{conversation_id}/switch-agent
 Authorization: Bearer {token}
 ```
+
+> **参数说明**: `conversation_id` 是客服的 UUID
 
 **请求体**：
 ```json
@@ -572,10 +591,12 @@ Authorization: Bearer {token}
 ### 4.1 上传文档
 
 ```http
-POST https://atlas.matrix-net.tech/atlas/api/knowledge-base/{agent_name}/documents
+POST https://atlas.matrix-net.tech/atlas/api/knowledge-base/{agent_id}/documents
 Authorization: Bearer {token}
 Content-Type: multipart/form-data
 ```
+
+> **参数说明**: `agent_id` 是智能体的 UUID
 
 **请求体**（FormData）：
 ```javascript
@@ -619,9 +640,11 @@ fetch('https://atlas.matrix-net.tech/atlas/api/knowledge-base/customer-service/d
 ### 4.2 获取文档列表
 
 ```http
-GET https://atlas.matrix-net.tech/atlas/api/knowledge-base/{agent_name}/documents
+GET https://atlas.matrix-net.tech/atlas/api/knowledge-base/{agent_id}/documents
 Authorization: Bearer {token}
 ```
+
+> **参数说明**: `agent_id` 是智能体的 UUID
 
 **响应**：
 ```json
@@ -641,9 +664,13 @@ Authorization: Bearer {token}
 ### 4.3 删除文档
 
 ```http
-DELETE https://atlas.matrix-net.tech/atlas/api/knowledge-base/{agent_name}/documents/{file_id}
+DELETE https://atlas.matrix-net.tech/atlas/api/knowledge-base/{agent_id}/documents/{file_id}
 Authorization: Bearer {token}
 ```
+
+> **参数说明**: 
+> - `agent_id`: 智能体的 UUID
+> - `file_id`: 文档的 UUID（从列表接口获取）
 
 **响应**：
 ```json
@@ -659,9 +686,11 @@ Authorization: Bearer {token}
 ### 4.4 获取知识库统计
 
 ```http
-GET https://atlas.matrix-net.tech/atlas/api/knowledge-base/{agent_name}/stats
+GET https://atlas.matrix-net.tech/atlas/api/knowledge-base/{agent_id}/stats
 Authorization: Bearer {token}
 ```
+
+> **参数说明**: `agent_id` 是智能体的 UUID
 
 **响应**：
 ```json
@@ -687,16 +716,20 @@ Authorization: Bearer {token}
 ### 4.5 清空知识库
 
 ```http
-DELETE https://atlas.matrix-net.tech/atlas/api/knowledge-base/{agent_name}/clear
+DELETE https://atlas.matrix-net.tech/atlas/api/knowledge-base/{agent_id}/clear
 Authorization: Bearer {token}
 ```
+
+> **参数说明**: `agent_id` 是智能体的 UUID
 
 ### 4.6 重建知识库
 
 ```http
-POST https://atlas.matrix-net.tech/atlas/api/knowledge-base/{agent_name}/rebuild
+POST https://atlas.matrix-net.tech/atlas/api/knowledge-base/{agent_id}/rebuild
 Authorization: Bearer {token}
 ```
+
+> **参数说明**: `agent_id` 是智能体的 UUID
 
 **请求体**：
 ```json
@@ -714,7 +747,12 @@ Authorization: Bearer {token}
 ### 5.1 发送消息（同步响应）
 
 ```http
-POST https://atlas.matrix-net.tech/atlas/api/chat/{conversation_name}/message
+POST https://atlas.matrix-net.tech/atlas/api/chat/{conversation_id}/message
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+> **参数说明**: `conversation_id` 是客服的 UUID
 Authorization: Bearer {token}
 ```
 
@@ -761,10 +799,12 @@ Authorization: Bearer {token}
 ### 5.2 发送消息（流式响应）⚡ 推荐
 
 ```http
-POST https://atlas.matrix-net.tech/atlas/api/chat/{conversation_name}/message/stream
+POST https://atlas.matrix-net.tech/atlas/api/chat/{conversation_id}/message/stream
 Authorization: Bearer {token}
 Content-Type: application/json
 ```
+
+> **参数说明**: `conversation_id` 是客服的 UUID
 
 **请求体**：
 ```json
@@ -1050,9 +1090,11 @@ function ChatComponent() {
 ### 5.3 清空对话历史
 
 ```http
-DELETE https://atlas.matrix-net.tech/atlas/api/chat/{conversation_name}/history
+DELETE https://atlas.matrix-net.tech/atlas/api/chat/{conversation_id}/history
 Authorization: Bearer {token}
 ```
+
+> **参数说明**: `conversation_id` 是客服的 UUID
 
 **说明**：仅清空内存中的对话历史，不影响知识库。
 
@@ -1201,11 +1243,12 @@ const agentResponse = await fetch(`${API_BASE_URL}/agents`, {
   })
 });
 
-// 3. 上传知识库文档
+// 3. 上传知识库文档（使用创建时返回的 agent ID）
 const formData = new FormData();
 formData.append('file', fileInput.files[0]);
+const agentId = agentResponse.id;  // 从步骤2获取的 UUID
 
-await fetch(`${API_BASE_URL}/knowledge-base/customer-service/documents`, {
+await fetch(`${API_BASE_URL}/knowledge-base/${agentId}/documents`, {
   method: 'POST',
   headers: { 'Authorization': `Bearer ${access_token}` },
   body: formData
@@ -1227,8 +1270,10 @@ const conversationResponse = await fetch(`${API_BASE_URL}/conversations`, {
   })
 });
 
-// 5. 发送消息
-const chatResponse = await fetch(`${API_BASE_URL}/chat/xiaoli/message`, {
+// 5. 发送消息（使用创建时返回的 conversation ID）
+const conversationId = conversationResponse.id;  // 从步骤4获取的 UUID
+
+const chatResponse = await fetch(`${API_BASE_URL}/chat/${conversationId}/message`, {
   method: 'POST',
   headers: {
     'Authorization': `Bearer ${access_token}`,
@@ -1260,14 +1305,16 @@ await createAgent({
 });
 
 // 白班时间绑定白班智能体
-await createConversation({
+const supportConv = await createConversation({
   name: 'support',
   display_name: '在线客服',
   agent_name: 'service-day'
 });
 
-// 夜班时间切换到夜班智能体
-await fetch('https://atlas.matrix-net.tech/atlas/api/conversations/support/switch-agent', {
+// 夜班时间切换到夜班智能体（使用 conversation ID）
+const conversationId = supportConv.id;  // UUID
+
+await fetch(`https://atlas.matrix-net.tech/atlas/api/conversations/${conversationId}/switch-agent`, {
   method: 'POST',
   headers: {
     'Authorization': `Bearer ${token}`,
@@ -1284,13 +1331,13 @@ await fetch('https://atlas.matrix-net.tech/atlas/api/conversations/support/switc
 
 ```javascript
 // 创建一个通用智能体
-await createAgent({
+const generalAgent = await createAgent({
   name: 'general-support',
   display_name: '通用客服智能体'
 });
 
-// 上传知识库
-await uploadDocument('general-support', 'knowledge.pdf');
+// 上传知识库（使用 agent UUID）
+await uploadDocument(generalAgent.id, 'knowledge.pdf');
 
 // 多个客服共享这个智能体
 await createConversation({
@@ -1467,7 +1514,7 @@ async function safeApiCall(apiFunction) {
 ### 3. 文件上传进度
 
 ```javascript
-async function uploadWithProgress(agentName, file, onProgress) {
+async function uploadWithProgress(agentId, file, onProgress) {
   const formData = new FormData();
   formData.append('file', file);
 
@@ -1489,14 +1536,15 @@ async function uploadWithProgress(agentName, file, onProgress) {
       }
     });
 
-    xhr.open('POST', `https://atlas.matrix-net.tech/atlas/api/knowledge-base/${agentName}/documents`);
+    xhr.open('POST', `https://atlas.matrix-net.tech/atlas/api/knowledge-base/${agentId}/documents`);
     xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.send(formData);
   });
 }
 
-// 使用
-uploadWithProgress('customer-service', file, (percent) => {
+// 使用（agentId 是智能体的 UUID）
+const agentId = 'agent-uuid-from-list';
+uploadWithProgress(agentId, file, (percent) => {
   console.log(`上传进度: ${percent}%`);
   updateProgressBar(percent);
 });
@@ -1506,8 +1554,8 @@ uploadWithProgress('customer-service', file, (percent) => {
 
 ```javascript
 class ChatWidget {
-  constructor(conversationName, token) {
-    this.conversationName = conversationName;
+  constructor(conversationId, token) {
+    this.conversationId = conversationId;  // 客服的 UUID
     this.token = token;
     this.messages = [];
   }
@@ -1521,7 +1569,7 @@ class ChatWidget {
 
     try {
       const response = await fetch(
-        `https://atlas.matrix-net.tech/atlas/api/chat/${this.conversationName}/message`,
+        `https://atlas.matrix-net.tech/atlas/api/chat/${this.conversationId}/message`,
         {
           method: 'POST',
           headers: {
@@ -1569,8 +1617,8 @@ class ChatWidget {
 
 ```javascript
 class AgentSwitcher {
-  constructor(conversationName, token) {
-    this.conversationName = conversationName;
+  constructor(conversationId, token) {
+    this.conversationId = conversationId;  // 客服的 UUID
     this.token = token;
   }
 
@@ -1589,7 +1637,7 @@ class AgentSwitcher {
 
   async switchAgent(newAgentName, reason) {
     const response = await fetch(
-      `https://atlas.matrix-net.tech/atlas/api/conversations/${this.conversationName}/switch-agent`,
+      `https://atlas.matrix-net.tech/atlas/api/conversations/${this.conversationId}/switch-agent`,
       {
         method: 'POST',
         headers: {
@@ -1610,7 +1658,9 @@ class AgentSwitcher {
   }
 }
 
-// 定时切换
+// 定时切换（使用 conversation UUID）
+const conversationId = 'conv-uuid-from-list';
+const switcher = new AgentSwitcher(conversationId, token);
 setInterval(() => {
   switcher.switchByTime();
 }, 60 * 60 * 1000);  // 每小时检查一次
@@ -1620,8 +1670,8 @@ setInterval(() => {
 
 ```javascript
 class KnowledgeBaseManager {
-  constructor(agentName, token) {
-    this.agentName = agentName;
+  constructor(agentId, token) {
+    this.agentId = agentId;  // 智能体的 UUID
     this.token = token;
   }
 
@@ -1654,7 +1704,7 @@ class KnowledgeBaseManager {
     formData.append('file', file);
 
     const response = await fetch(
-      `https://atlas.matrix-net.tech/atlas/api/knowledge-base/${this.agentName}/documents`,
+      `https://atlas.matrix-net.tech/atlas/api/knowledge-base/${this.agentId}/documents`,
       {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${this.token}` },
@@ -1678,7 +1728,7 @@ class KnowledgeBaseManager {
 
   async getStats() {
     const response = await fetch(
-      `https://atlas.matrix-net.tech/atlas/api/knowledge-base/${this.agentName}/stats`,
+      `https://atlas.matrix-net.tech/atlas/api/knowledge-base/${this.agentId}/stats`,
       {
         headers: { 'Authorization': `Bearer ${this.token}` }
       }
@@ -1690,7 +1740,7 @@ class KnowledgeBaseManager {
 
   async rebuildWithFiles(fileIdsToKeep) {
     const response = await fetch(
-      `https://atlas.matrix-net.tech/atlas/api/knowledge-base/${this.agentName}/rebuild`,
+      `https://atlas.matrix-net.tech/atlas/api/knowledge-base/${this.agentId}/rebuild`,
       {
         method: 'POST',
         headers: {
@@ -1704,6 +1754,11 @@ class KnowledgeBaseManager {
     return await response.json();
   }
 }
+
+// 使用示例（agentId 是智能体的 UUID）
+const agentId = 'agent-uuid-from-list';
+const kbManager = new KnowledgeBaseManager(agentId, token);
+await kbManager.uploadMultipleFiles(files);
 ```
 
 ---
@@ -1717,6 +1772,8 @@ class KnowledgeBaseManager {
 
 const BASE_URL = 'https://atlas.matrix-net.tech/atlas/api';
 let token = '';
+let agentId = '';
+let conversationId = '';
 
 // 1. 登录
 async function login() {
@@ -1748,7 +1805,8 @@ async function createAgent() {
     })
   });
   const data = await response.json();
-  console.log('✅ 创建智能体:', data.name);
+  agentId = data.id;  // 保存 UUID
+  console.log('✅ 创建智能体:', data.name, 'ID:', data.id);
 }
 
 // 3. 创建客服
@@ -1767,12 +1825,13 @@ async function createConversation() {
     })
   });
   const data = await response.json();
-  console.log('✅ 创建客服:', data.name);
+  conversationId = data.id;  // 保存 UUID
+  console.log('✅ 创建客服:', data.name, 'ID:', data.id);
 }
 
-// 4. 发送消息
+// 4. 发送消息（使用 conversation UUID）
 async function sendMessage() {
-  const response = await fetch(`${BASE_URL}/chat/test-chat/message`, {
+  const response = await fetch(`${BASE_URL}/chat/${conversationId}/message`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -1792,6 +1851,9 @@ async function sendMessage() {
   await createAgent();
   await createConversation();
   await sendMessage();
+  console.log('\n✅ 所有测试通过！');
+  console.log('Agent ID:', agentId);
+  console.log('Conversation ID:', conversationId);
 })();
 ```
 

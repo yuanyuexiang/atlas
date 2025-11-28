@@ -56,9 +56,9 @@ async def list_agents(
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
 
 
-@router.get("/{agent_name}", response_model=AgentResponse, summary="获取智能体详情")
+@router.get("/{agent_id}", response_model=AgentResponse, summary="获取智能体详情")
 async def get_agent(
-    agent_name: str,
+    agent_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -66,18 +66,19 @@ async def get_agent(
     获取指定智能体的详细信息
     
     包括：配置、知识库统计、使用该智能体的客服列表
+    参数：agent_id (UUID)
     """
     try:
-        return agent_service.get_agent(db, agent_name)
+        return agent_service.get_agent(db, agent_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
 
 
-@router.put("/{agent_name}", response_model=AgentResponse, summary="更新智能体")
+@router.put("/{agent_id}", response_model=AgentResponse, summary="更新智能体")
 async def update_agent(
-    agent_name: str,
+    agent_id: str,
     update_data: AgentUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -86,18 +87,19 @@ async def update_agent(
     更新智能体配置
     
     可更新：显示名称、系统提示词、状态、描述
+    参数：agent_id (UUID)
     """
     try:
-        return agent_service.update_agent(db, agent_name, update_data)
+        return agent_service.update_agent(db, agent_id, update_data)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
 
 
-@router.delete("/{agent_name}", summary="删除智能体")
+@router.delete("/{agent_id}", summary="删除智能体")
 async def delete_agent(
-    agent_name: str,
+    agent_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -105,38 +107,39 @@ async def delete_agent(
     删除智能体（同时删除知识库）
     
     注意：如果有客服正在使用该智能体，无法删除
+    参数：agent_id (UUID)
     """
     try:
-        return agent_service.delete_agent(db, agent_name)
+        return agent_service.delete_agent(db, agent_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
 
 
-@router.post("/{agent_name}/activate", summary="激活智能体")
+@router.post("/{agent_id}/activate", summary="激活智能体")
 async def activate_agent(
-    agent_name: str,
+    agent_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """激活智能体"""
+    """激活智能体，参数：agent_id (UUID)"""
     try:
         update_data = AgentUpdate(status="active")
-        return agent_service.update_agent(db, agent_name, update_data)
+        return agent_service.update_agent(db, agent_id, update_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{agent_name}/deactivate", summary="停用智能体")
+@router.post("/{agent_id}/deactivate", summary="停用智能体")
 async def deactivate_agent(
-    agent_name: str,
+    agent_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """停用智能体"""
+    """停用智能体，参数：agent_id (UUID)"""
     try:
         update_data = AgentUpdate(status="inactive")
-        return agent_service.update_agent(db, agent_name, update_data)
+        return agent_service.update_agent(db, agent_id, update_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

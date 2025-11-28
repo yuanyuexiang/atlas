@@ -55,55 +55,55 @@ async def list_conversations(
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
 
 
-@router.get("/{conversation_name}", response_model=ConversationResponse, summary="获取客服详情")
+@router.get("/{conversation_id}", response_model=ConversationResponse, summary="获取客服详情")
 async def get_conversation(
-    conversation_name: str,
+    conversation_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """获取指定客服的详细信息"""
+    """获取指定客服的详细信息，参数：conversation_id (UUID)"""
     try:
-        return conversation_service.get_conversation(db, conversation_name)
+        return conversation_service.get_conversation(db, conversation_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
 
 
-@router.put("/{conversation_name}", response_model=ConversationResponse, summary="更新客服")
+@router.put("/{conversation_id}", response_model=ConversationResponse, summary="更新客服")
 async def update_conversation(
-    conversation_name: str,
+    conversation_id: str,
     update_data: ConversationUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """更新客服配置"""
+    """更新客服配置，参数：conversation_id (UUID)"""
     try:
-        return conversation_service.update_conversation(db, conversation_name, update_data)
+        return conversation_service.update_conversation(db, conversation_id, update_data)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
 
 
-@router.delete("/{conversation_name}", summary="删除客服")
+@router.delete("/{conversation_id}", summary="删除客服")
 async def delete_conversation(
-    conversation_name: str,
+    conversation_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """删除客服"""
+    """删除客服，参数：conversation_id (UUID)"""
     try:
-        return conversation_service.delete_conversation(db, conversation_name)
+        return conversation_service.delete_conversation(db, conversation_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
 
 
-@router.post("/{conversation_name}/switch-agent", response_model=AgentSwitchResponse, summary="切换智能体")
+@router.post("/{conversation_id}/switch-agent", response_model=AgentSwitchResponse, summary="切换智能体")
 async def switch_agent(
-    conversation_name: str,
+    conversation_id: str,
     switch_data: AgentSwitchRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -111,57 +111,58 @@ async def switch_agent(
     """
     切换客服使用的智能体
     
+    参数：conversation_id (UUID)
     可用于：
     - 白班/夜班智能体切换
     - 专家智能体切换
     - A/B 测试
     """
     try:
-        return conversation_service.switch_agent(db, conversation_name, switch_data)
+        return conversation_service.switch_agent(db, conversation_id, switch_data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"切换失败: {str(e)}")
 
 
-@router.get("/{conversation_name}/agent-history", summary="查看智能体切换历史")
+@router.get("/{conversation_id}/agent-history", summary="查看智能体切换历史")
 async def get_agent_switch_history(
-    conversation_name: str,
+    conversation_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """查看客服的智能体切换历史记录"""
+    """查看客服的智能体切换历史记录，参数：conversation_id (UUID)"""
     try:
-        return conversation_service.get_switch_history(db, conversation_name)
+        return conversation_service.get_switch_history(db, conversation_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
 
 
-@router.post("/{conversation_name}/online", summary="客服上线")
+@router.post("/{conversation_id}/online", summary="客服上线")
 async def set_online(
-    conversation_name: str,
+    conversation_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """设置客服状态为在线"""
+    """设置客服状态为在线，参数：conversation_id (UUID)"""
     try:
         update_data = ConversationUpdate(status="online")
-        return conversation_service.update_conversation(db, conversation_name, update_data)
+        return conversation_service.update_conversation(db, conversation_id, update_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{conversation_name}/offline", summary="客服下线")
+@router.post("/{conversation_id}/offline", summary="客服下线")
 async def set_offline(
-    conversation_name: str,
+    conversation_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """设置客服状态为离线"""
+    """设置客服状态为离线，参数：conversation_id (UUID)"""
     try:
         update_data = ConversationUpdate(status="offline")
-        return conversation_service.update_conversation(db, conversation_name, update_data)
+        return conversation_service.update_conversation(db, conversation_id, update_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

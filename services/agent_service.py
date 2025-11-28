@@ -53,17 +53,12 @@ class AgentService:
         print(f"✅ 智能体已创建: {agent_data.name}")
         return self._to_response(db, agent)
     
-    def get_agent(self, db: Session, agent_name: str) -> AgentResponse:
-        """获取智能体详情 - 支持 name 或 id"""
-        # 尝试作为 UUID 查询
-        agent = db.query(Agent).filter(Agent.id == agent_name).first()
-        
-        # 如果找不到，尝试作为 name 查询
-        if not agent:
-            agent = db.query(Agent).filter(Agent.name == agent_name).first()
+    def get_agent(self, db: Session, agent_id: str) -> AgentResponse:
+        """获取智能体详情 - 只支持 UUID"""
+        agent = db.query(Agent).filter(Agent.id == agent_id).first()
         
         if not agent:
-            raise ValueError(f"智能体不存在: {agent_name}")
+            raise ValueError(f"智能体不存在: {agent_id}")
         return self._to_response(db, agent)
     
     def list_agents(
@@ -89,19 +84,14 @@ class AgentService:
     def update_agent(
         self,
         db: Session,
-        agent_name: str,
+        agent_id: str,
         update_data: AgentUpdate
     ) -> AgentResponse:
-        """更新智能体 - 支持 name 或 id"""
-        # 尝试作为 UUID 查询
-        agent = db.query(Agent).filter(Agent.id == agent_name).first()
-        
-        # 如果找不到，尝试作为 name 查询
-        if not agent:
-            agent = db.query(Agent).filter(Agent.name == agent_name).first()
+        """更新智能体 - 只支持 UUID"""
+        agent = db.query(Agent).filter(Agent.id == agent_id).first()
         
         if not agent:
-            raise ValueError(f"智能体不存在: {agent_name}")
+            raise ValueError(f"智能体不存在: {agent_id}")
         
         # 更新字段
         for field, value in update_data.dict(exclude_unset=True).items():
@@ -113,25 +103,20 @@ class AgentService:
         
         # 如果更新了系统提示词，同步到 RAG Agent
         if update_data.system_prompt:
-            self.rag_manager.update_system_prompt(agent_name, update_data.system_prompt)
+            self.rag_manager.update_system_prompt(agent.name, update_data.system_prompt)
         
         db.commit()
         db.refresh(agent)
         
-        print(f"✅ 智能体已更新: {agent_name}")
+        print(f"✅ 智能体已更新: {agent.name}")
         return self._to_response(db, agent)
     
-    def delete_agent(self, db: Session, agent_name: str) -> dict:
-        """删除智能体 - 支持 name 或 id"""
-        # 尝试作为 UUID 查询
-        agent = db.query(Agent).filter(Agent.id == agent_name).first()
-        
-        # 如果找不到，尝试作为 name 查询
-        if not agent:
-            agent = db.query(Agent).filter(Agent.name == agent_name).first()
+    def delete_agent(self, db: Session, agent_id: str) -> dict:
+        """删除智能体 - 只支持 UUID"""
+        agent = db.query(Agent).filter(Agent.id == agent_id).first()
         
         if not agent:
-            raise ValueError(f"智能体不存在: {agent_name}")
+            raise ValueError(f"智能体不存在: {agent_id}")
         
         # 检查是否有客服使用
         if agent.conversations:

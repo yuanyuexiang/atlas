@@ -19,15 +19,17 @@ rag_manager = get_rag_manager()
 agent_service = AgentService()
 
 
-@router.post("/{agent_name}/documents", response_model=DocumentUploadResponse, summary="上传文档")
+@router.post("/{agent_id}/documents", response_model=DocumentUploadResponse, summary="上传文档")
 async def upload_document(
-    agent_name: str,
+    agent_id: str,
     file: UploadFile = File(..., description="支持 PDF、TXT、MD 格式"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     为智能体上传知识库文档并自动向量化
+    
+    参数：agent_id (UUID)
     
     流程：
     1. 保存临时文件
@@ -36,8 +38,11 @@ async def upload_document(
     4. 保存元数据
     """
     try:
-        # 验证智能体存在
-        agent_service.get_agent(db, agent_name)
+        # 验证智能体存在并获取 name
+        agent = db.query(Agent).filter(Agent.id == agent_id).first()
+        
+        if not agent:
+            raise HTTPException(404, "智能体不存在")
         
         # 验证文件类型
         file_ext = os.path.splitext(file.filename)[1].lower()
@@ -61,8 +66,8 @@ async def upload_document(
             os.remove(temp_path)
             raise HTTPException(400, f"文件过大: {file_size / 1024 / 1024:.1f}MB > 10MB")
         
-        # 上传到 Milvus
-        result = rag_manager.upload_file(agent_name, temp_path)
+        # 上传到 Milvus（使用 agent.name）
+        result = rag_manager.upload_file(agent.name, temp_path)
         
         if not result["success"]:
             raise HTTPException(500, result["message"])
@@ -83,21 +88,19 @@ async def upload_document(
         raise HTTPException(500, f"上传失败: {str(e)}")
 
 
-@router.get("/{agent_name}/documents", summary="获取文档列表")
+@router.get("/{agent_id}/documents", summary="获取文档列表")
 async def list_documents(
-    agent_name: str,
+    agent_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """获取智能体的所有文档列表"""
+    """获取智能体的所有文档列表，参数：agent_id (UUID)"""
     try:
         # 轻量级验证：只检查智能体是否存在（不构建完整响应）
         from models.entities import Agent
-        agent = db.query(Agent).filter(
-            (Agent.id == agent_name) | (Agent.name == agent_name)
-        ).first()
+        agent = db.query(Agent).filter(Agent.id == agent_id).first()
         if not agent:
-            raise HTTPException(404, f"智能体不存在: {agent_name}")
+            raise HTTPException(404, f"智能体不存在: {agent_id}")
         
         # 直接读取文件列表（已优化，不创建 Agent 实例）
         files = rag_manager.list_files(agent.name)
@@ -108,22 +111,24 @@ async def list_documents(
         raise HTTPException(500, f"查询失败: {str(e)}")
 
 
-@router.delete("/{agent_name}/documents/{file_id}", summary="删除文档")
+@router.delete("/{agent_id}/documents/{file_id}", summary="删除文档")
 async def delete_document(
-    agent_name: str,
+    agent_id: str,
     file_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     删除指定文档
+    
+    参数：
+    - agent_id: 智能体 ID (UUID)
+    - file_id: 文件 ID (UUID)
     """
     try:
         # 轻量级验证智能体存在（不构建完整响应）
         from models.entities import Agent
-        agent = db.query(Agent).filter(
-            (Agent.id == agent_name) | (Agent.name == agent_name)
-        ).first()
+        agent = db.query(Agent).filter(Agent.id == agent_id).first()
         
         if not agent:
             raise HTTPException(404, "智能体不存在")
@@ -137,22 +142,26 @@ async def delete_document(
         raise HTTPException(500, f"删除失败: {str(e)}")
 
 
-@router.get("/{agent_name}/stats", summary="获取知识库统计")
+@router.get("/{agent_id}/stats", summary="获取知识库统计")
 async def get_knowledge_base_stats(
-    agent_name: str,
+    agent_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     获取知识库统计信息
     
+    参数：agent_id (UUID)
     包括：文档数、向量数、存储大小、文件列表
     """
     try:
-        # 验证智能体存在
-        agent_service.get_agent(db, agent_name)
+        # 验证智能体存在并获取 name
+        from models.entities import Agent
+        agent = db.query(Agent).filter(Agent.id == agent_id).first()
+        if not agent:
+            raise HTTPException(404, "智能体不存在")
         
-        stats = rag_manager.get_statistics(agent_name)
+        stats = rag_manager.get_statistics(agent.name)
         return {"success": True, "data": stats}
     except ValueError as e:
         raise HTTPException(404, str(e))
@@ -160,22 +169,26 @@ async def get_knowledge_base_stats(
         raise HTTPException(500, f"查询失败: {str(e)}")
 
 
-@router.delete("/{agent_name}/clear", summary="清空知识库")
+@router.delete("/{agent_id}/clear", summary="清空知识库")
 async def clear_knowledge_base(
-    agent_name: str,
+    agent_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     清空智能体的知识库
     
+    参数：agent_id (UUID)
     警告：此操作不可逆，将删除所有文档和向量数据
     """
     try:
-        # 验证智能体存在
-        agent_service.get_agent(db, agent_name)
+        # 验证智能体存在并获取 name
+        from models.entities import Agent
+        agent = db.query(Agent).filter(Agent.id == agent_id).first()
+        if not agent:
+            raise HTTPException(404, "智能体不存在")
         
-        result = rag_manager.clear_knowledge_base(agent_name)
+        result = rag_manager.clear_knowledge_base(agent.name)
         return result
     except ValueError as e:
         raise HTTPException(404, str(e))
@@ -183,20 +196,24 @@ async def clear_knowledge_base(
         raise HTTPException(500, f"清空失败: {str(e)}")
 
 
-@router.post("/{agent_name}/rebuild", summary="重建知识库索引")
+@router.post("/{agent_id}/rebuild", summary="重建知识库索引")
 async def rebuild_knowledge_base(
-    agent_name: str,
+    agent_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     重建知识库索引
     
+    参数：agent_id (UUID)
     用于优化搜索性能或修复索引问题
     """
     try:
         # 验证智能体存在
-        agent_service.get_agent(db, agent_name)
+        from models.entities import Agent
+        agent = db.query(Agent).filter(Agent.id == agent_id).first()
+        if not agent:
+            raise HTTPException(404, "智能体不存在")
         
         # TODO: 实现重建逻辑
         return {
