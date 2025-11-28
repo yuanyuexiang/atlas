@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from models.schemas import DocumentUploadResponse, KnowledgeBaseStats
 from models.auth import User
+from models.entities import Agent
 from services.multi_rag_manager import get_rag_manager
 from services.agent_service import AgentService
 from services.auth_service import get_current_active_user
