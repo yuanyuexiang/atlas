@@ -318,9 +318,7 @@ class RAGAgent:
         """
         try:
             # 先从 Milvus 删除向量数据
-            from services.milvus_service import get_milvus_store
-            milvus_store = get_milvus_store()
-            milvus_store.delete_by_file_id(self.agent_name, file_id)
+            self.milvus_store.delete_by_file_id(self.agent_name, file_id)
             
             # 再更新元数据
             files_meta = self._load_files_meta()

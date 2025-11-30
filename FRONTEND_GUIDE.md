@@ -8,7 +8,8 @@
 > 🚀 **API UUID 迁移（2025-11-28）**: 所有实体的 CRUD 接口已统一改为使用 UUID 作为路径参数  
 > - **重要变更**: 路径参数从 `{entity_name}` 改为 `{entity_id}` (UUID)  
 > - **影响范围**: Agent、Conversation、Knowledge Base、Chat 共 24 个接口  
-> - **详细指南**: 请查看 [API UUID 迁移指南](API_UUID_MIGRATION.md)
+> - **常见错误**: 路径中缺少 UUID 参数会返回 404 错误
+> - **示例**: `POST /chat/stream` ❌ → `POST /chat/{conversation_id}/message/stream` ✅
 
 ## 📋 目录
 
@@ -16,6 +17,7 @@
 - [核心概念](#核心概念)
 - [API 认证](#api-认证)
 - [API 接口文档](#api-接口文档)
+- [常见错误](#常见错误)
 - [数据模型](#数据模型)
 - [开发流程](#开发流程)
 - [错误处理](#错误处理)
@@ -39,15 +41,18 @@ Echo 是一个基于 RAG（检索增强生成）的智能客服系统，采用**
 
 - 🤖 多智能体管理
 - 💬 客服与智能体解耦
-- 📚 知识库独立管理
+- 📚 知识库独立管理（支持多编码格式）
 - 🔄 智能体动态切换
 - 🔐 JWT 认证授权
+- 📊 大文件上传支持（自动分块处理）
 
 ### 技术栈
 
 - **后端**: FastAPI + PostgreSQL + Milvus
 - **API**: RESTful
 - **认证**: JWT Bearer Token
+- **AI**: SiliconFlow API (Qwen/Qwen2.5-7B-Instruct)
+- **向量化**: BAAI/bge-large-zh-v1.5
 - **文档**: Swagger UI (`/docs`) + ReDoc (`/redoc`)
 
 ---
@@ -1357,6 +1362,153 @@ await createConversation({
 
 ---
 
+## 常见错误
+
+### ❌ 错误 1: 404 Not Found - 路径缺少 UUID
+
+**错误信息**:
+```
+POST /atlas/api/chat/stream
+404 Not Found
+```
+
+**原因**: 路径中缺少必需的 `conversation_id` 参数
+
+**❌ 错误代码**:
+```javascript
+fetch('https://atlas.matrix-net.tech/atlas/api/chat/stream', {
+  method: 'POST'
+})
+```
+
+**✅ 正确代码**:
+```javascript
+const conversationId = 'db21165e-a6b5-44bd-a2eb-d435a1a6ab9d';
+fetch(`https://atlas.matrix-net.tech/atlas/api/chat/${conversationId}/message/stream`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({ content: '你好' })
+})
+```
+
+### ❌ 错误 2: 使用 name 而不是 UUID
+
+**错误信息**:
+```
+GET /atlas/api/agents/customer-service
+404 Not Found
+```
+
+**原因**: 接口已迁移到 UUID，不再支持 name 查询
+
+**❌ 错误代码**:
+```javascript
+const agentName = 'customer-service';
+fetch(`/atlas/api/agents/${agentName}`) // 使用 name
+```
+
+**✅ 正确代码**:
+```javascript
+// 1. 先从列表获取 UUID
+const agents = await fetch('/atlas/api/agents').then(r => r.json());
+const agent = agents.find(a => a.name === 'customer-service');
+const agentId = agent.id; // UUID
+
+// 2. 使用 UUID 查询
+fetch(`/atlas/api/agents/${agentId}`)
+```
+
+### ❌ 错误 3: Token 过期
+
+**错误信息**:
+```json
+{
+  "detail": "无效的认证凭证"
+}
+```
+
+**解决方案**:
+```javascript
+// 检查 token 过期时间
+const tokenExpiry = localStorage.getItem('token_expiry');
+if (Date.now() > tokenExpiry) {
+  // 重新登录
+  await login();
+}
+```
+
+### ❌ 错误 4: 文件上传失败 - 编码问题
+
+**错误信息**:
+```json
+{
+  "detail": "上传失败: Error loading uploads/xxx.txt"
+}
+```
+
+**原因**: 文件编码不是 UTF-8（已修复，系统现支持多编码）
+
+**支持的编码**: UTF-8, GBK, GB2312, GB18030, Latin-1
+
+**解决方案**: 无需处理，后端自动检测编码
+
+### ❌ 错误 5: EventSource 无法发送 POST 请求
+
+**问题**: EventSource 只支持 GET 请求，无法用于流式聊天
+
+**解决方案**: 使用 fetch + ReadableStream
+
+```javascript
+async function streamChat(conversationId, message, token) {
+  const response = await fetch(
+    `https://atlas.matrix-net.tech/atlas/api/chat/${conversationId}/message/stream`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ content: message })
+    }
+  );
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop(); // 保留不完整的行
+    
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.content) {
+            console.log(data.content); // 逐字显示
+          }
+          if (data.done) {
+            console.log('Stream completed');
+            return;
+          }
+        } catch (e) {
+          console.error('Parse error:', e);
+        }
+      }
+    }
+  }
+}
+```
+
+---
+
 ## 错误处理
 
 ### HTTP 状态码
@@ -1424,7 +1576,52 @@ await createConversation({
 
 ## 最佳实践
 
-### 1. Token 管理
+### 1. UUID 管理
+
+```javascript
+// ✅ 推荐：使用状态管理存储实体 ID
+class EntityStore {
+  constructor() {
+    this.agents = new Map();      // id -> agent
+    this.conversations = new Map(); // id -> conversation
+  }
+
+  // 加载并缓存列表
+  async loadAgents() {
+    const agents = await fetch('/atlas/api/agents').then(r => r.json());
+    agents.forEach(agent => {
+      this.agents.set(agent.id, agent);
+    });
+    return agents;
+  }
+
+  // 通过 name 查找 ID
+  getAgentIdByName(name) {
+    for (const [id, agent] of this.agents) {
+      if (agent.name === name) return id;
+    }
+    return null;
+  }
+
+  // 通过 ID 获取完整对象
+  getAgent(id) {
+    return this.agents.get(id);
+  }
+}
+
+// 使用示例
+const store = new EntityStore();
+await store.loadAgents();
+
+// 显示：使用 name
+console.log(agent.name); // "customer-service"
+
+// API 调用：使用 ID
+const agentId = store.getAgentIdByName('customer-service');
+fetch(`/atlas/api/agents/${agentId}`)
+```
+
+### 2. Token 管理
 
 ```javascript
 class ApiClient {
@@ -1952,12 +2149,40 @@ curl https://atlas.matrix-net.tech/atlas/health
 
 ---
 
-**文档版本**: v0.2.2  
-**最后更新**: 2025-11-28  
-**后端 API 版本**: v0.2.0  
-**更新说明**: 
+## 更新日志
+
+### v0.3.0 (2025-11-28)
+
+**🚀 重大更新**：
+- ✅ **UUID 迁移**：所有 24 个 API 接口统一使用 UUID 作为路径参数
+- ✅ **文件上传优化**：支持多编码（UTF-8, GBK, GB2312, GB18030）
+- ✅ **大文件支持**：自动分块处理，支持 1.4MB+ 文件
+- ✅ **模型更新**：切换到 Qwen/Qwen2.5-7B-Instruct
+- ✅ **文档完善**：添加常见错误和最佳实践
+
+**⚠️ 破坏性变更**：
+- 路径参数从 `{entity_name}` 改为 `{entity_id}` (UUID)
+- 需要更新所有 API 调用代码
+- 详见 [API UUID 迁移指南](API_UUID_MIGRATION.md)
+
+**🐛 Bug 修复**：
+- 修复知识库删除失败问题
+- 修复文件编码导致的加载错误
+- 修复 Embedding API token 限制问题
+- 修复批次大小超限问题
+
+### v0.2.2 (2025-11-24)
+
+**功能更新**：
 - 修复文件上传向量化问题
 - 列表接口改为返回数组格式
 - 客服更新接口新增 agent_name 字段
 - 优化空知识库友好提示
 - 修复文件名污染问题
+
+---
+
+**文档版本**: v0.3.0  
+**最后更新**: 2025-11-28  
+**后端 API 版本**: v0.3.0  
+**兼容性**: 前端需更新所有 API 调用以支持 UUID
