@@ -123,14 +123,14 @@ class AgentService:
             raise ValueError(f"无法删除：仍有 {len(agent.conversations)} 个客服在使用此智能体")
         
         # 删除知识库
-        self.rag_manager.clear_knowledge_base(agent_name)
+        self.rag_manager.clear_knowledge_base(agent.name)
         
         # 删除数据库记录
         db.delete(agent)
         db.commit()
         
-        print(f"✅ 智能体已删除: {agent_name}")
-        return {"success": True, "message": f"智能体 {agent_name} 已删除"}
+        print(f"✅ 智能体已删除: {agent.name}")
+        return {"success": True, "message": f"智能体 {agent.name} 已删除"}
     
     def _to_response(self, db: Session, agent: Agent) -> AgentResponse:
         """转换为响应模型"""
