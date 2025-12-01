@@ -1449,6 +1449,76 @@ if (Date.now() > tokenExpiry) {
 }
 ```
 
+**原因**: 文件使用非 UTF-8 编码（如 GBK）
+
+**解决方案**: 
+- 后端已支持多编码自动检测（UTF-8, GBK, GB2312, GB18030）
+- 如果仍失败，请检查文件是否损坏
+- 大文件会自动分块处理（单块 < 400 字符）
+
+### ❌ 错误 5: 知识库数据不一致
+
+**现象**:
+```
+文件总数: 0
+向量总数: 3,995 ❌
+存储大小: 0.00MB
+```
+
+**原因**: 删除文件时元数据被删除，但向量数据残留
+
+**检测方法**:
+```javascript
+// 获取统计信息
+const stats = await fetch(`/atlas/api/knowledge-base/${agentId}/stats`)
+  .then(r => r.json());
+
+if (!stats.data.is_consistent) {
+  console.warn('数据不一致:', stats.data.warning);
+  // 显示警告提示用户
+}
+```
+
+**解决方案 1: 自动修复**（推荐）
+```javascript
+// 调用修复接口
+const result = await fetch(
+  `/atlas/api/knowledge-base/${agentId}/fix-inconsistency`,
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  }
+).then(r => r.json());
+
+console.log('修复结果:', result);
+// {
+//   success: true,
+//   message: "数据不一致已修复，知识库已清空",
+//   before: { files: 0, vectors: 3995 },
+//   after: { files: 0, vectors: 0 }
+// }
+```
+
+**解决方案 2: 手动清空**
+```javascript
+// 完全清空知识库
+await fetch(`/atlas/api/knowledge-base/${agentId}/clear`, {
+  method: 'DELETE',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+});
+```
+
+**预防措施**:
+- 后端已增强级联删除机制
+- 删除文件时会同时清理向量数据和元数据
+- 统计接口会自动检测不一致并返回警告
+
+### ❌ 错误 6: EventSource 不支持 POST
+
 **原因**: 文件编码不是 UTF-8（已修复，系统现支持多编码）
 
 **支持的编码**: UTF-8, GBK, GB2312, GB18030, Latin-1

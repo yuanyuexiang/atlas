@@ -131,16 +131,28 @@ class MultiRAGManager:
             
             # 获取 Milvus 统计
             milvus_stats = self.milvus_store.get_collection_stats(agent_name)
+            actual_vectors = milvus_stats.get("total_vectors", 0)
             
-            return {
+            # 数据一致性检查
+            is_consistent = (total_files == 0 and actual_vectors == 0) or (total_files > 0 and actual_vectors > 0)
+            
+            result = {
                 "agent_name": agent_name,
                 "collection_name": milvus_stats.get("collection_name", ""),
                 "total_files": total_files,
                 "total_chunks": total_chunks,
-                "total_vectors": milvus_stats.get("total_vectors", 0),
+                "total_vectors": actual_vectors,
                 "total_size_mb": round(total_size / 1024 / 1024, 2),
-                "files": files
+                "files": files,
+                "is_consistent": is_consistent
             }
+            
+            # 如果数据不一致，添加警告信息
+            if not is_consistent:
+                result["warning"] = f"数据不一致：元数据显示 {total_files} 个文件，但向量库中有 {actual_vectors} 个向量"
+                print(f"⚠️ 数据不一致检测 - {agent_name}: 文件={total_files}, 向量={actual_vectors}")
+            
+            return result
         except Exception as e:
             print(f"❌ 获取统计信息失败: {e}")
             return {
@@ -155,7 +167,7 @@ class MultiRAGManager:
     
     def clear_knowledge_base(self, agent_name: str) -> dict:
         """
-        清空指定智能体的知识库
+        清空指定智能体的知识库（包括向量数据和元数据）
         
         Args:
             agent_name: 智能体名称
@@ -164,22 +176,32 @@ class MultiRAGManager:
             dict: 操作结果
         """
         try:
-            # 移除 agent 实例
+            vector_deleted = False
+            metadata_deleted = False
+            
+            # 1. 移除 agent 实例
             if agent_name in self.agents:
                 del self.agents[agent_name]
             
-            # 删除 Milvus Collection
-            self.milvus_store.delete_collection(agent_name)
+            # 2. 删除 Milvus Collection（关键：确保向量数据被删除）
+            vector_deleted = self.milvus_store.delete_collection(agent_name)
             
-            # 删除元数据文件
+            # 3. 删除元数据文件
             metadata_dir = os.getenv("METADATA_DIR", "metadata_store")
             meta_file = os.path.join(metadata_dir, f"{agent_name}.json")
             if os.path.exists(meta_file):
                 os.remove(meta_file)
+                metadata_deleted = True
+            
+            print(f"✅ 知识库已清空: {agent_name} (向量: {'是' if vector_deleted else '否'}, 元数据: {'是' if metadata_deleted else '否'})")
             
             return {
                 "success": True,
-                "message": f"{agent_name} 的知识库已清空"
+                "message": f"{agent_name} 的知识库已清空",
+                "details": {
+                    "vectors_deleted": vector_deleted,
+                    "metadata_deleted": metadata_deleted
+                }
             }
         except Exception as e:
             return {

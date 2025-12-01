@@ -120,11 +120,15 @@ async def delete_document(
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    删除指定文档
+    删除指定文档（级联删除向量数据和元数据）
     
     参数：
     - agent_id: 智能体 ID (UUID)
     - file_id: 文件 ID (UUID)
+    
+    注意：此操作会同时删除：
+    1. Milvus 向量数据库中的向量记录
+    2. 元数据文件中的文件记录
     """
     try:
         # 轻量级验证智能体存在（不构建完整响应）
@@ -134,9 +138,15 @@ async def delete_document(
         if not agent:
             raise HTTPException(404, "智能体不存在")
         
-        # 删除文件（包括向量数据和元数据）
+        # 删除文件（包括向量数据和元数据）- 确保级联删除
         result = rag_manager.delete_file(agent.name, file_id)
+        
+        if not result.get("success"):
+            raise HTTPException(500, result.get("message", "删除失败"))
+        
         return result
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(404, str(e))
     except Exception as e:
@@ -215,6 +225,71 @@ async def rebuild_knowledge_base(
         agent = db.query(Agent).filter(Agent.id == agent_id).first()
         if not agent:
             raise HTTPException(404, "智能体不存在")
+        
+        return {
+            "success": True,
+            "message": "索引重建功能待实现"
+        }
+    except Exception as e:
+        raise HTTPException(500, f"重建失败: {str(e)}")
+
+
+@router.post("/{agent_id}/fix-inconsistency", summary="修复数据不一致")
+async def fix_data_inconsistency(
+    agent_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    修复知识库数据不一致问题
+    
+    参数：agent_id (UUID)
+    
+    场景：
+    - 元数据显示 0 个文件，但向量库中还有数据
+    - 向量数据和元数据记录不匹配
+    
+    处理：清空所有向量数据和元数据，恢复一致状态
+    """
+    try:
+        # 验证智能体存在
+        from models.entities import Agent
+        agent = db.query(Agent).filter(Agent.id == agent_id).first()
+        if not agent:
+            raise HTTPException(404, "智能体不存在")
+        
+        # 获取当前统计信息
+        stats = rag_manager.get_statistics(agent.name)
+        
+        # 检查是否存在不一致
+        if stats.get("is_consistent", True):
+            return {
+                "success": True,
+                "message": "数据已一致，无需修复",
+                "data": stats
+            }
+        
+        # 执行修复：完全清空知识库
+        result = rag_manager.clear_knowledge_base(agent.name)
+        
+        # 获取修复后的统计信息
+        new_stats = rag_manager.get_statistics(agent.name)
+        
+        return {
+            "success": True,
+            "message": "数据不一致已修复，知识库已清空",
+            "before": {
+                "files": stats.get("total_files", 0),
+                "vectors": stats.get("total_vectors", 0)
+            },
+            "after": {
+                "files": new_stats.get("total_files", 0),
+                "vectors": new_stats.get("total_vectors", 0)
+            },
+            "details": result.get("details", {})
+        }
+    except Exception as e:
+        raise HTTPException(500, f"修复失败: {str(e)}")
         
         # TODO: 实现重建逻辑
         return {

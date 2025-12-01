@@ -311,23 +311,33 @@ class RAGAgent:
     
     def remove_document(self, file_id: str):
         """
-        从 Milvus 删除文档
+        从 Milvus 删除文档（同时删除向量数据和元数据）
         
         Args:
             file_id: 文件ID
         """
         try:
-            # 先从 Milvus 删除向量数据
-            self.milvus_store.delete_by_file_id(self.agent_name, file_id)
+            # 1. 先删除 Milvus 向量数据（关键：确保级联删除）
+            delete_success = self.milvus_store.delete_by_file_id(self.agent_name, file_id)
             
-            # 再更新元数据
+            if not delete_success:
+                print(f"⚠️ 向量数据删除失败或不存在: {file_id}")
+            
+            # 2. 再更新元数据
             files_meta = self._load_files_meta()
+            original_count = len(files_meta)
             files_meta = [f for f in files_meta if f['id'] != file_id]
+            
+            if len(files_meta) == original_count:
+                print(f"⚠️ 元数据中未找到文件: {file_id}")
+            
             self._save_files_meta(files_meta)
             
-            print(f"✅ 文档已完全删除: {file_id}")
+            print(f"✅ 文档已完全删除: {file_id} (向量: {'是' if delete_success else '否'}, 元数据: {'是' if len(files_meta) < original_count else '否'})")
         except Exception as e:
             print(f"❌ 删除文档失败: {e}")
+            import traceback
+            traceback.print_exc()
             raise
     
     def get_files_meta(self) -> List[dict]:
