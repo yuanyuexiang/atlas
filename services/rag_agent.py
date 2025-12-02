@@ -1,5 +1,6 @@
 """
 RAG Agent - 基于 Milvus 的智能问答代理
+使用 LangChain v1.0+ Agent 框架实现
 """
 import os
 import json
@@ -10,7 +11,9 @@ from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain.agents import create_agent
+from langchain_core.tools import tool
 from services.milvus_service import get_milvus_store
 
 load_dotenv()
@@ -60,20 +63,63 @@ class RAGAgent:
         print(f"✅ 向量存储已就绪: {self.agent_name}")
     
     def _create_agent(self):
-        """创建简化的 LLM（不使用 Agent 框架）"""
-        # 创建 LLM
-        self.llm = ChatOpenAI(
+        """使用 LangChain v1.0+ Agent 框架创建 Agent"""
+        # 1. 创建 LLM
+        model = ChatOpenAI(
             temperature=0,
             max_tokens=1000,
             model=os.getenv("CHAT_MODEL", "gpt-3.5-turbo"),
             base_url=os.getenv("OPENAI_BASE_URL"),
             api_key=os.getenv("OPENAI_API_KEY")
         )
-        print(f"✅ LLM 创建成功: {self.agent_name}")
+        
+        # 2. 使用 @tool 装饰器定义工具（LangChain v1.0+ 标准方式）
+        agent_name = self.agent_name  # 闭包捕获
+        milvus_store = self.milvus_store
+        
+        @tool
+        def knowledge_base_search(query: str) -> str:
+            """搜索智能体的知识库获取相关文档内容。
+            
+            当用户询问产品、服务、政策等需要参考文档的问题时，应该使用此工具。
+            
+            Args:
+                query: 搜索查询（用户问题或关键词）
+                
+            Returns:
+                知识库中与查询最相关的文档片段
+            """
+            results = milvus_store.search_similar(agent_name, query, top_k=3)
+            if not results:
+                return "未找到相关内容"
+            return "\n\n---\n\n".join(
+                f"文档片段 {i+1}:\n{r['content']}" 
+                for i, r in enumerate(results[:3])
+            )
+        
+        tools = [knowledge_base_search]
+        
+        # 3. 使用 create_agent（LangChain v1.0+ 官方推荐 API）
+        self.agent = create_agent(
+            model=model,
+            tools=tools,
+            system_prompt=f"""{self.system_prompt}
+
+            你可以使用 knowledge_base_search 工具来查询知识库，获取准确的信息来回答用户问题。
+
+            重要规则：
+            1. 对于需要参考文档的问题，必须先使用 knowledge_base_search 工具查询知识库
+            2. 基于检索到的知识库内容准确回答，不要编造信息
+            3. 如果知识库中没有相关内容，诚实告知用户
+            4. 回答要清晰、准确、友好、专业
+            5. 引用知识库内容时要自然流畅，不要生硬复制粘贴"""
+        )
+        
+        print(f"✅ LangChain v1.0+ Agent 创建成功 (create_agent): {self.agent_name}")
     
     def ask(self, question: str) -> str:
         """
-        向 Agent 提问
+        向 Agent 提问（使用 LangChain v1.0+ create_agent）
         
         Args:
             question: 用户问题
@@ -82,42 +128,44 @@ class RAGAgent:
             str: Agent 回答
         """
         try:
-            self.chat_history.append(HumanMessage(content=question))
-            
-            # 从知识库检索
-            context = self._retrieve_for_agent(question)
-            
             # 检查知识库是否为空
-            if context == "未找到相关内容":
-                # 检查知识库是否真的为空
-                stats = self.milvus_store.get_collection_stats(self.agent_name)
-                if stats and stats.get("total_vectors", 0) == 0:
-                    # 知识库为空，返回友好提示
-                    empty_kb_msg = "您好！我是智能客服助手。目前我的知识库还是空的，请管理员先上传相关文档，我才能更好地为您服务。"
-                    self.chat_history.append(AIMessage(content=empty_kb_msg))
-                    return empty_kb_msg
+            stats = self.milvus_store.get_collection_stats(self.agent_name)
+            if stats and stats.get("total_vectors", 0) == 0:
+                empty_kb_msg = "您好！我是智能客服助手。目前我的知识库还是空的，请管理员先上传相关文档，我才能更好地为您服务。"
+                return empty_kb_msg
             
-            # 构建 Prompt
-            prompt_text = f"{self.system_prompt}\n\n知识库内容：\n{context}\n\n用户问题：{question}\n\n请基于知识库内容回答用户问题。"
+            # 构建消息历史（LangGraph State 格式）
+            messages = []
+            # 添加历史消息（保留最近10轮）
+            messages.extend(self.chat_history[-10:])
+            # 添加当前用户问题
+            messages.append({"role": "user", "content": question})
             
-            # 调用 LLM
-            response = self.llm.invoke(prompt_text)
-            answer = response.content if hasattr(response, 'content') else str(response)
+            # 使用 Agent 执行（LangGraph API）
+            result = self.agent.invoke({"messages": messages})
             
+            # 提取最后一条 AI 消息
+            final_messages = result.get("messages", [])
+            if final_messages:
+                answer = final_messages[-1].content
+            else:
+                answer = "抱歉，我无法回答这个问题。"
+            
+            # 更新对话历史
+            self.chat_history.append(HumanMessage(content=question))
             self.chat_history.append(AIMessage(content=answer))
+            
             return answer
             
         except Exception as e:
-            print(f"❌ 处理错误: {e}")
+            print(f"❌ Agent 处理错误: {e}")
             import traceback
             traceback.print_exc()
-            error_msg = f"抱歉，处理您的问题时出现了错误。"
-            self.chat_history.append(AIMessage(content=error_msg))
-            return error_msg
+            return "抱歉，处理您的问题时出现了错误。"
     
     async def ask_stream(self, question: str):
         """
-        向 Agent 提问（流式响应）
+        向 Agent 提问（流式响应，LangChain v1.0+ create_agent）
         
         Args:
             question: 用户问题
@@ -126,43 +174,54 @@ class RAGAgent:
             str: 逐块返回的回答内容
         """
         try:
-            self.chat_history.append(HumanMessage(content=question))
-            
-            # 从知识库检索
-            context = self._retrieve_for_agent(question)
-            
             # 检查知识库是否为空
-            if context == "未找到相关内容":
-                # 检查知识库是否真的为空
-                stats = self.milvus_store.get_collection_stats(self.agent_name)
-                if stats and stats.get("total_vectors", 0) == 0:
-                    # 知识库为空，返回友好提示
-                    empty_kb_msg = "您好！我是智能客服助手。目前我的知识库还是空的，请管理员先上传相关文档，我才能更好地为您服务。"
-                    self.chat_history.append(AIMessage(content=empty_kb_msg))
-                    yield empty_kb_msg
-                    return
+            stats = self.milvus_store.get_collection_stats(self.agent_name)
+            if stats and stats.get("total_vectors", 0) == 0:
+                empty_kb_msg = "您好！我是智能客服助手。目前我的知识库还是空的，请管理员先上传相关文档，我才能更好地为您服务。"
+                yield empty_kb_msg
+                return
             
-            # 构建 Prompt
-            prompt_text = f"{self.system_prompt}\n\n知识库内容：\n{context}\n\n用户问题：{question}\n\n请基于知识库内容回答用户问题。"
+            # 构建消息历史
+            messages = []
+            messages.extend(self.chat_history[-10:])
+            messages.append({"role": "user", "content": "question"})
             
-            # 流式调用 LLM
+            # Agent 流式响应（LangGraph stream API）
             full_response = ""
-            async for chunk in self.llm.astream(prompt_text):
-                if hasattr(chunk, 'content') and chunk.content:
-                    content = chunk.content
-                    full_response += content
-                    yield content
             
-            # 保存完整回答到历史
-            self.chat_history.append(AIMessage(content=full_response))
+            async for chunk in self.agent.astream(
+                {"messages": messages},
+                stream_mode="values"  # 流式输出状态值
+            ):
+                # 获取最新消息
+                latest_messages = chunk.get("messages", [])
+                if latest_messages:
+                    latest_message = latest_messages[-1]
+                    
+                    # 如果是 AI 消息，流式输出内容
+                    if hasattr(latest_message, "content") and latest_message.content:
+                        content = latest_message.content
+                        # 只输出新增的内容
+                        if content and not content.startswith(full_response):
+                            new_content = content[len(full_response):]
+                            full_response = content
+                            yield new_content
+                    
+                    # 如果是工具调用，打印日志
+                    elif hasattr(latest_message, "tool_calls") and latest_message.tool_calls:
+                        for tc in latest_message.tool_calls:
+                            print(f"🔧 Agent 正在使用工具: {tc.get('name', 'unknown')}")
+            
+            # 更新对话历史
+            if full_response:
+                self.chat_history.append(HumanMessage(content=question))
+                self.chat_history.append(AIMessage(content=full_response))
             
         except Exception as e:
-            print(f"❌ 流式处理错误: {e}")
+            print(f"❌ Agent 流式处理错误: {e}")
             import traceback
             traceback.print_exc()
-            error_msg = "抱歉，处理您的问题时出现了错误。"
-            self.chat_history.append(AIMessage(content=error_msg))
-            yield error_msg
+            yield "抱歉，处理您的问题时出现了错误。"
     
     def _retrieve_for_agent(self, query: str) -> str:
         """Agent 内部使用的检索方法"""
