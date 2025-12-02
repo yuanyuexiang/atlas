@@ -220,9 +220,10 @@ class RAGAgent:
             # 注意：Embedding API 限制每个文本 < 512 tokens
             # 对于中文，1个汉字约等于2个tokens，所以 chunk_size 设为 400 字符比较安全
             text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=400,
-                chunk_overlap=100,
-                add_start_index=True
+                chunk_size=800,
+                chunk_overlap=120,
+                add_start_index=True,
+                separators=["\n\n", "\n", "。", "！", "？", "；", "，", " "]
             )
             splits = text_splitter.split_documents(docs)
             print(f"  分割为 {len(splits)} 个文本块")
