@@ -1092,7 +1092,84 @@ function ChatComponent() {
 
 ---
 
-### 5.3 清空对话历史
+### 5.3 获取聊天历史
+
+```http
+GET https://atlas.matrix-net.tech/atlas/api/chat/{conversation_id}/messages?page=1&page_size=50
+Authorization: Bearer {token}
+```
+
+> **参数说明**: `conversation_id` 是客服的 UUID
+
+**查询参数**：
+- `page`: 页码（从 1 开始，默认 1）
+- `page_size`: 每页数量（默认 50，最大 100）
+
+**响应**：
+```json
+{
+  "success": true,
+  "data": {
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "我可以帮你解答关于产品的问题。",
+        "timestamp": null
+      },
+      {
+        "role": "user",
+        "content": "你们的产品有什么特点？",
+        "timestamp": null
+      },
+      {
+        "role": "assistant",
+        "content": "我们的产品主要有以下特点：...",
+        "timestamp": null
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "page_size": 50,
+      "total": 3,
+      "total_pages": 1
+    }
+  }
+}
+```
+
+**说明**：
+- 返回当前会话的所有历史消息（按时间倒序，最新的在前）
+- 聊天历史存储在内存中，**服务重启后会清空**
+- `timestamp` 当前为 `null`（内存存储暂不支持时间戳）
+- 同一智能体的所有客服共享聊天历史
+
+**前端示例**：
+```javascript
+async function getChatHistory(conversationId, page = 1, pageSize = 50) {
+  const response = await fetch(
+    `https://atlas.matrix-net.tech/atlas/api/chat/${conversationId}/messages?page=${page}&page_size=${pageSize}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    }
+  );
+  
+  const result = await response.json();
+  return result.data;
+}
+
+// 使用示例
+const { messages, pagination } = await getChatHistory('a9342048-b75f-410d-9973-5f2d52b81f48');
+console.log(`总共 ${pagination.total} 条消息`);
+messages.forEach(msg => {
+  console.log(`${msg.role}: ${msg.content}`);
+});
+```
+
+---
+
+### 5.4 清空对话历史
 
 ```http
 DELETE https://atlas.matrix-net.tech/atlas/api/chat/{conversation_id}/history

@@ -223,3 +223,73 @@ async def get_chat_info(
         raise HTTPException(404, str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
+
+
+@router.get("/{conversation_id}/messages", summary="获取聊天历史")
+async def get_chat_history(
+    conversation_id: str,
+    page: int = 1,
+    page_size: int = 50,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    获取对话历史记录（当前会话的消息列表）
+    
+    参数：
+    - conversation_id (UUID): 客服 ID
+    - page: 页码（从 1 开始）
+    - page_size: 每页数量（默认 50，最大 100）
+    
+    注意：
+    - 聊天历史存储在内存中，重启服务会清空
+    - 返回当前会话的所有消息（用户消息 + AI 回复）
+    - 按时间倒序返回（最新的在前）
+    """
+    try:
+        # 验证客服存在
+        conversation = conversation_service.get_conversation(db, conversation_id)
+        
+        # 获取智能体的聊天历史
+        agent_name = conversation.agent.name
+        rag_agent = rag_manager.get_agent(agent_name)
+        
+        # 获取历史记录
+        chat_history = rag_agent.chat_history
+        
+        # 转换为消息格式
+        messages = []
+        for msg in chat_history:
+            role = "user" if msg.__class__.__name__ == "HumanMessage" else "assistant"
+            messages.append({
+                "role": role,
+                "content": msg.content,
+                "timestamp": None  # 内存中没有时间戳
+            })
+        
+        # 倒序（最新的在前）
+        messages.reverse()
+        
+        # 分页
+        total = len(messages)
+        start = (page - 1) * page_size
+        end = start + page_size
+        page_messages = messages[start:end]
+        
+        return {
+            "success": True,
+            "data": {
+                "messages": page_messages,
+                "pagination": {
+                    "page": page,
+                    "page_size": page_size,
+                    "total": total,
+                    "total_pages": (total + page_size - 1) // page_size
+                }
+            }
+        }
+        
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"查询失败: {str(e)}")
