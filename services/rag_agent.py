@@ -184,10 +184,11 @@ class RAGAgent:
             # 构建消息历史
             messages = []
             messages.extend(self.chat_history[-10:])
-            messages.append({"role": "user", "content": "question"})
+            messages.append({"role": "user", "content": question})
             
             # Agent 流式响应（LangGraph stream API）
             full_response = ""
+            last_content_length = 0
             
             async for chunk in self.agent.astream(
                 {"messages": messages},
@@ -201,9 +202,10 @@ class RAGAgent:
                     # 如果是 AI 消息，流式输出内容
                     if hasattr(latest_message, "content") and latest_message.content:
                         content = latest_message.content
-                        # 只输出新增的内容
-                        if content and not content.startswith(full_response):
-                            new_content = content[len(full_response):]
+                        # 只输出新增的内容（增量输出）
+                        if len(content) > last_content_length:
+                            new_content = content[last_content_length:]
+                            last_content_length = len(content)
                             full_response = content
                             yield new_content
                     
