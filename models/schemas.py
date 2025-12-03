@@ -142,6 +142,9 @@ class DocumentUploadResponse(BaseModel):
     filename: str
     chunks_count: int
     upload_time: str
+    status: str = Field(default="processing", description="文件状态: processing/ready/failed")  # ✅ 新增
+    processing_progress: int = Field(default=0, description="处理进度 0-100")  # ✅ 新增
+    error_message: Optional[str] = Field(default=None, description="错误信息（失败时）")  # ✅ 新增
 
 
 class KnowledgeBaseStats(BaseModel):

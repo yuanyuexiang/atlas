@@ -78,7 +78,10 @@ async def upload_document(
             file_id=data["file_id"],
             filename=data["filename"],
             chunks_count=data["chunks_count"],
-            upload_time=data.get("upload_time", "")
+            upload_time=data.get("upload_time", ""),
+            status=data.get("status", "ready"),  # ✅ 新增
+            processing_progress=data.get("processing_progress", 100),  # ✅ 新增
+            error_message=data.get("error_message")  # ✅ 新增
         )
         
     except HTTPException:

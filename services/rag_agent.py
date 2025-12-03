@@ -260,15 +260,25 @@ class RAGAgent:
         Returns:
             dict: 处理结果
         """
+        # 提前生成 file_id 和 filename，确保失败时也能记录
+        file_id = str(uuid.uuid4())
+        filename = os.path.basename(file_path) if file_path else "unknown"
+        
         try:
+            # 验证文件存在性
             if not os.path.exists(file_path):
+                # 即使文件不存在，也先创建元数据条目，这样可以记录失败状态
+                self._save_initial_metadata(file_id, filename, 0, file_path)
                 raise FileNotFoundError(f"文件不存在: {file_path}")
             
+            # 获取文件信息
             filename = os.path.basename(file_path)
             file_size = os.path.getsize(file_path)
-            file_id = str(uuid.uuid4())
             
             print(f"📄 处理文件: {filename}")
+            
+            # 1️⃣ 立即保存初始元数据（status=processing）
+            self._save_initial_metadata(file_id, filename, file_size, file_path)
             
             # 加载文档
             if file_path.endswith('.pdf'):
@@ -360,17 +370,13 @@ class RAGAgent:
             if failed_batches:
                 print(f"⚠️ 失败 {len(failed_batches)} 个批次")
             
-            # 保存元数据
-            files_meta = self._load_files_meta()
-            files_meta.append({
-                'id': file_id,
-                'filename': filename,
-                'upload_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'file_size': file_size,
-                'chunks_count': total_added,
-                'file_type': file_path.split('.')[-1]
-            })
-            self._save_files_meta(files_meta)
+            # 2️⃣ 更新状态为完成（ready）
+            self._update_file_status(
+                file_id=file_id,
+                status='ready',
+                processing_progress=100,
+                chunks_count=total_added
+            )
             
             # 删除源文件
             try:
@@ -382,11 +388,23 @@ class RAGAgent:
             return {
                 'file_id': file_id,
                 'filename': filename,
-                'chunks_count': total_added
+                'chunks_count': total_added,
+                'status': 'ready',  # ✅ 新增
+                'processing_progress': 100  # ✅ 新增
             }
             
         except Exception as e:
             print(f"❌ 添加文档失败: {e}")
+            # 3️⃣ 失败时更新状态
+            try:
+                self._update_file_status(
+                    file_id=file_id,
+                    status='failed',
+                    processing_progress=0,
+                    error_message=str(e)
+                )
+            except:
+                pass  # 如果元数据更新失败，不影响异常抛出
             raise
     
     def remove_document(self, file_id: str):
@@ -453,3 +471,43 @@ class RAGAgent:
     def get_system_prompt(self) -> str:
         """获取当前系统提示词"""
         return self.system_prompt
+    
+    def _save_initial_metadata(self, file_id: str, filename: str, file_size: int, file_path: str):
+        """保存初始文件元数据（status=processing）"""
+        files_meta = self._load_files_meta()
+        files_meta.append({
+            'id': file_id,
+            'filename': filename,
+            'upload_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'file_size': file_size,
+            'chunks_count': 0,
+            'file_type': file_path.split('.')[-1],
+            'status': 'processing',  # ✅ 初始状态
+            'error_message': None,  # ✅ 新增
+            'processing_progress': 0,  # ✅ 新增
+            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # ✅ 新增
+        })
+        self._save_files_meta(files_meta)
+        print(f"📝 初始元数据已保存: {filename} (status=processing)")
+    
+    def _update_file_status(self, file_id: str, status: str, processing_progress: int,
+                           chunks_count: int = None, error_message: str = None):
+        """更新文件处理状态"""
+        files_meta = self._load_files_meta()
+        
+        for file in files_meta:
+            if file['id'] == file_id:
+                file['status'] = status
+                file['processing_progress'] = processing_progress
+                file['updated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                
+                if chunks_count is not None:
+                    file['chunks_count'] = chunks_count
+                if error_message:
+                    file['error_message'] = error_message
+                
+                self._save_files_meta(files_meta)
+                print(f"📝 状态已更新: {file['filename']} -> {status} ({processing_progress}%)")
+                return
+        
+        print(f"⚠️ 未找到文件元数据: {file_id}")
