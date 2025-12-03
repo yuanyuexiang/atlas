@@ -1114,17 +1114,17 @@ Authorization: Bearer {token}
       {
         "role": "assistant",
         "content": "我可以帮你解答关于产品的问题。",
-        "timestamp": "2025-12-03T10:30:45.123456"
+        "timestamp": 1733209845
       },
       {
         "role": "user",
         "content": "你们的产品有什么特点？",
-        "timestamp": "2025-12-03T10:30:42.789012"
+        "timestamp": 1733209842
       },
       {
         "role": "assistant",
         "content": "我们的产品主要有以下特点：...",
-        "timestamp": "2025-12-03T10:30:40.456789"
+        "timestamp": 1733209840
       }
     ],
     "pagination": {
@@ -1140,12 +1140,12 @@ Authorization: Bearer {token}
 **字段说明**：
 - `role`: 消息角色（`user` 用户消息 / `assistant` AI 回复）
 - `content`: 消息内容
-- `timestamp`: ISO 8601 格式时间戳（UTC 时间，例如 `2025-12-03T10:30:45.123456`）
+- `timestamp`: Unix 时间戳（秒，整数，例如 `1733209845`）
 
 **说明**：
 - 返回当前会话的所有历史消息（按时间倒序，最新的在前）
 - 聊天历史存储在内存中，**服务重启后会清空**
-- 时间戳为消息创建时的 UTC 时间（ISO 8601 格式）
+- `timestamp` 为 Unix 时间戳（秒），前端需要乘以 1000 转换为毫秒：`new Date(timestamp * 1000)`
 - 同一智能体的所有客服共享聊天历史
 
 **前端示例**：
@@ -1168,9 +1168,9 @@ async function getChatHistory(conversationId, page = 1, pageSize = 50) {
 const { messages, pagination } = await getChatHistory('a9342048-b75f-410d-9973-5f2d52b81f48');
 console.log(`总共 ${pagination.total} 条消息`);
 
-// 格式化时间戳
+// 格式化时间戳（Unix 时间戳转换为本地时间）
 messages.forEach(msg => {
-  const time = msg.timestamp ? new Date(msg.timestamp).toLocaleString('zh-CN') : '未知时间';
+  const time = msg.timestamp ? new Date(msg.timestamp * 1000).toLocaleString('zh-CN') : '未知时间';
   console.log(`[${time}] ${msg.role}: ${msg.content}`);
 });
 ```

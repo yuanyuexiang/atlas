@@ -152,8 +152,8 @@ class RAGAgent:
                 answer = "抱歉，我无法回答这个问题。"
             
             # 更新对话历史（添加时间戳）
-            from datetime import datetime, UTC
-            timestamp = datetime.now(UTC).isoformat()
+            import time
+            timestamp = int(time.time())  # Unix 时间戳（秒）
             
             self.chat_history.append(HumanMessage(
                 content=question,
@@ -225,8 +225,8 @@ class RAGAgent:
             
             # 更新对话历史（添加时间戳）
             if full_response:
-                from datetime import datetime, UTC
-                timestamp = datetime.now(UTC).isoformat()
+                import time
+                timestamp = int(time.time())  # Unix 时间戳（秒）
                 
                 self.chat_history.append(HumanMessage(
                     content=question,
