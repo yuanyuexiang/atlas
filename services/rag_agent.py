@@ -151,9 +151,18 @@ class RAGAgent:
             else:
                 answer = "抱歉，我无法回答这个问题。"
             
-            # 更新对话历史
-            self.chat_history.append(HumanMessage(content=question))
-            self.chat_history.append(AIMessage(content=answer))
+            # 更新对话历史（添加时间戳）
+            from datetime import datetime, UTC
+            timestamp = datetime.now(UTC).isoformat()
+            
+            self.chat_history.append(HumanMessage(
+                content=question,
+                additional_kwargs={"timestamp": timestamp}
+            ))
+            self.chat_history.append(AIMessage(
+                content=answer,
+                additional_kwargs={"timestamp": timestamp}
+            ))
             
             return answer
             
@@ -214,10 +223,19 @@ class RAGAgent:
                         for tc in latest_message.tool_calls:
                             print(f"🔧 Agent 正在使用工具: {tc.get('name', 'unknown')}")
             
-            # 更新对话历史
+            # 更新对话历史（添加时间戳）
             if full_response:
-                self.chat_history.append(HumanMessage(content=question))
-                self.chat_history.append(AIMessage(content=full_response))
+                from datetime import datetime, UTC
+                timestamp = datetime.now(UTC).isoformat()
+                
+                self.chat_history.append(HumanMessage(
+                    content=question,
+                    additional_kwargs={"timestamp": timestamp}
+                ))
+                self.chat_history.append(AIMessage(
+                    content=full_response,
+                    additional_kwargs={"timestamp": timestamp}
+                ))
             
         except Exception as e:
             print(f"❌ Agent 流式处理错误: {e}")

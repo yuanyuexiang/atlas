@@ -261,10 +261,12 @@ async def get_chat_history(
         messages = []
         for msg in chat_history:
             role = "user" if msg.__class__.__name__ == "HumanMessage" else "assistant"
+            # 从 additional_kwargs 中提取时间戳
+            timestamp = msg.additional_kwargs.get("timestamp") if hasattr(msg, "additional_kwargs") else None
             messages.append({
                 "role": role,
                 "content": msg.content,
-                "timestamp": None  # 内存中没有时间戳
+                "timestamp": timestamp
             })
         
         # 倒序（最新的在前）
