@@ -69,7 +69,7 @@ class AgentService:
         skip: int = 0,
         limit: int = 100
     ) -> list:
-        """获取智能体列表"""
+        """获取智能体列表（轻量级，不查询 Milvus 统计）"""
         query = db.query(Agent)
         
         if status:
@@ -79,7 +79,8 @@ class AgentService:
         
         agents = query.offset(skip).limit(limit).all()
         
-        return [self._to_response(db, agent) for agent in agents]
+        # 使用轻量级响应，避免查询 Milvus
+        return [self._to_light_response(db, agent) for agent in agents]
     
     def update_agent(
         self,
@@ -133,7 +134,7 @@ class AgentService:
         return {"success": True, "message": f"智能体 {agent.name} 已删除"}
     
     def _to_response(self, db: Session, agent: Agent) -> AgentResponse:
-        """转换为响应模型"""
+        """转换为完整响应模型（包含 Milvus 统计）"""
         # 获取知识库统计
         kb_stats = self.rag_manager.get_statistics(agent.name)
         
@@ -146,6 +147,39 @@ class AgentService:
             total_vectors=kb_stats.get("total_vectors", 0),
             total_size_mb=kb_stats.get("total_size_mb", 0.0),
             files=kb_stats.get("files", [])
+        )
+        
+        return AgentResponse(
+            id=agent.id,
+            name=agent.name,
+            display_name=agent.display_name,
+            agent_type=agent.agent_type.value,
+            status=agent.status.value,
+            system_prompt=agent.system_prompt,
+            description=agent.description,
+            knowledge_base=kb_info,
+            created_at=agent.created_at,
+            updated_at=agent.updated_at,
+            conversations_using=conversations_using
+        )
+    
+    def _to_light_response(self, db: Session, agent: Agent) -> AgentResponse:
+        """转换为轻量级响应（只查询元数据，不查询 Milvus）"""
+        # 只读取元数据文件，不查询 Milvus
+        files = self.rag_manager.list_files(agent.name)
+        total_files = len(files)
+        total_chunks = sum(f.get("chunks_count", 0) for f in files)
+        total_size = sum(f.get("file_size", 0) for f in files)
+        
+        # 获取使用该智能体的客服列表
+        conversations_using = [c.name for c in agent.conversations]
+        
+        kb_info = KnowledgeBaseInfo(
+            collection_name=f"agent_{agent.name}",
+            total_files=total_files,
+            total_vectors=total_chunks,  # 使用元数据中的 chunks_count
+            total_size_mb=round(total_size / 1024 / 1024, 2),
+            files=files
         )
         
         return AgentResponse(
