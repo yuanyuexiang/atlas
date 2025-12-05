@@ -32,7 +32,7 @@ class RAGAgent:
             system_prompt: 系统提示词
         """
         self.agent_name = agent_name
-        self.system_prompt = system_prompt or self._get_default_prompt()
+        self.system_prompt = system_prompt
         self.milvus_store = get_milvus_store()
         self.vector_store = None
         self.agent = None
@@ -46,17 +46,6 @@ class RAGAgent:
         # 初始化
         self._init_vector_store()
         self._create_agent()
-    
-    def _get_default_prompt(self) -> str:
-        """获取默认系统提示词"""
-        return (
-            "你是一个智能助手，可以基于知识库回答用户的问题。\n"
-            "重要规则:\n"
-            "1. 使用检索到的知识库内容回答问题，准确引用相关信息\n"
-            "2. 如果知识库中没有相关内容，诚实告知用户\n"
-            "3. 使用清晰易懂的语言组织答案\n"
-            "4. 对于相同的问题，始终给出一致的答案"
-        )
     
     def _init_vector_store(self):
         """初始化向量存储"""
@@ -134,7 +123,7 @@ class RAGAgent:
         self.agent = create_agent(
             model=model,
             tools=tools,
-            system_prompt=self.system_prompt
+            system_prompt=self.system_prompt,
         )
         
         print(f"✅ LangChain v1.0+ Agent 创建成功 (create_agent): {self.agent_name} and system_prompt ({self.system_prompt})")
