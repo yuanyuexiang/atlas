@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from models.entities import Agent, AgentStatus, AgentType
 from models.schemas import AgentCreate, AgentUpdate, AgentResponse, KnowledgeBaseInfo
 from services.rag_agent import RAGAgent
-from services.milvus_service import get_milvus_store
+from services.document_processor import get_document_processor
+from services.vector_store_manager import get_vector_store_manager
 
 
 class AgentService:
@@ -19,7 +20,9 @@ class AgentService:
     def __init__(self):
         # RAG Agent 实例缓存
         self.rag_agents: Dict[str, RAGAgent] = {}
-        self.milvus_store = get_milvus_store()
+        # 依赖的服务
+        self.doc_processor = get_document_processor()
+        self.vector_manager = get_vector_store_manager()
     
     def get_rag_agent(self, db: Session, agent_name: str) -> RAGAgent:
         """
@@ -44,11 +47,12 @@ class AgentService:
         if not db_agent:
             raise ValueError(f"Agent 不存在: {agent_name}")
         
-        # 创建 RAGAgent 实例
+        # 创建 RAGAgent 实例（依赖注入）
         print(f"ℹ️ 创建新的 RAG Agent 实例: {agent_name}")
         rag_agent = RAGAgent(
             agent_name=agent_name,
-            system_prompt=db_agent.system_prompt
+            system_prompt=db_agent.system_prompt,
+            vector_manager=self.vector_manager  # 依赖注入
         )
         self.rag_agents[agent_name] = rag_agent
         return rag_agent
@@ -184,12 +188,38 @@ class AgentService:
             dict: 处理结果
         """
         try:
-            rag_agent = self.get_rag_agent(db, agent_name)
-            result = rag_agent.add_document(file_path)
+            # 生成 file_id
+            file_id = str(uuid.uuid4())
+            filename = os.path.basename(file_path)
+            
+            # 1. 使用 DocumentProcessor 处理文档
+            documents, stats = self.doc_processor.process_file(
+                file_path=file_path,
+                file_id=file_id,
+                filename=filename,
+                agent_name=agent_name
+            )
+            
+            # 2. 使用 VectorStoreManager 添加到向量数据库
+            result = self.vector_manager.add_documents(agent_name, documents)
+            
+            # 3. 删除源文件
+            try:
+                os.remove(file_path)
+                print(f"🗑️ 源文件已删除")
+            except Exception as e:
+                print(f"⚠️ 删除源文件失败: {e}")
+            
             return {
                 "success": True,
-                "message": f"文件 {os.path.basename(file_path)} 上传成功",
-                "data": result
+                "message": f"文件 {filename} 上传成功",
+                "data": {
+                    'file_id': file_id,
+                    'filename': filename,
+                    'chunks_count': result['added'],
+                    'status': 'ready',
+                    'processing_progress': 100
+                }
             }
         except Exception as e:
             return {
@@ -211,12 +241,18 @@ class AgentService:
             dict: 删除结果
         """
         try:
-            rag_agent = self.get_rag_agent(db, agent_name)
-            rag_agent.remove_document(file_id)
-            return {
-                "success": True,
-                "message": "文件删除成功"
-            }
+            # 直接使用 VectorStoreManager 删除向量数据
+            success = self.vector_manager.delete_by_file_id(agent_name, file_id)
+            if success:
+                return {
+                    "success": True,
+                    "message": "文件删除成功"
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "文件不存在或已删除"
+                }
         except Exception as e:
             return {
                 "success": False,
@@ -231,22 +267,11 @@ class AgentService:
             agent_name: 智能体名称
             
         Returns:
-            list: 文件元数据列表
+            list: 文件元数据列表（暂时返回空列表，元数据应由数据库管理）
         """
-        try:
-            # 直接读取元数据文件，避免创建 Agent 实例
-            metadata_dir = os.getenv("METADATA_DIR", "metadata_store")
-            meta_file = os.path.join(metadata_dir, f"{agent_name}.json")
-            
-            if os.path.exists(meta_file):
-                import json
-                with open(meta_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    return data.get('files', [])
-            return []
-        except Exception as e:
-            print(f"❌ 获取文件列表失败: {e}")
-            return []
+        # TODO: 元数据应该存储在数据库中，而不是 JSON 文件
+        # 这里暂时返回空列表，后续需要添加 Document 表
+        return []
     
     def get_statistics(self, agent_name: str) -> dict:
         """
