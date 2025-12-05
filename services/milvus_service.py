@@ -48,16 +48,22 @@ class MilvusVectorStore:
     
     def _init_embeddings(self):
         """初始化 Embedding 模型"""
-        print(f"🔧 初始化 Embedding 模型: {os.getenv('EMBEDDING_MODEL')}")
+        embedding_model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+        base_url = os.getenv("OPENAI_BASE_URL", "")
+        api_key = os.getenv("OPENAI_API_KEY", "")
+        chunk_size = 10
+        
+        print(f"🔧 初始化 Embedding 模型: {embedding_model}")
         self.embeddings = OpenAIEmbeddings(
-            model=os.getenv("EMBEDDING_MODEL"),
-            api_key=os.getenv("OPENAI_API_KEY"),
-            base_url=os.getenv("OPENAI_BASE_URL"),
-            check_embedding_ctx_length=False,  # 关键：禁用 token 长度检查
+            model=embedding_model,
+            api_key=api_key,
+            base_url=base_url,
+            check_embedding_ctx_length=False,  # 禁用 token 长度检查
+            chunk_size=chunk_size,  # 关键：限制批处理大小
             max_retries=3,
             timeout=30.0
         )
-        print(f"✅ Embedding 模型已初始化: {os.getenv('EMBEDDING_MODEL')}")
+        print(f"✅ Embedding 模型已初始化: {embedding_model}")
     
     def get_collection_name(self, agent_name: str) -> str:
         """生成 Collection 名称（符合 Milvus 命名规则）"""
