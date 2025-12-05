@@ -31,7 +31,7 @@ class MultiRAGManager:
             if system_prompt and system_prompt != self.agents[agent_name].system_prompt:
                 self.agents[agent_name].update_system_prompt(system_prompt)
             return self.agents[agent_name]
-        
+        print(f"ℹ️ 创建新的 RAG Agent 实例: {agent_name} with system_prompt: {system_prompt}")
         # 创建新的 Agent
         agent = RAGAgent(agent_name=agent_name, system_prompt=system_prompt)
         self.agents[agent_name] = agent
