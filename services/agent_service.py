@@ -1,21 +1,57 @@
 """
 智能体管理服务
-处理智能体的 CRUD 操作
+处理智能体的 CRUD 操作和 RAG Agent 实例管理
 """
+import os
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict
 from sqlalchemy.orm import Session
 from models.entities import Agent, AgentStatus, AgentType
 from models.schemas import AgentCreate, AgentUpdate, AgentResponse, KnowledgeBaseInfo
-from services.multi_rag_manager import get_rag_manager
+from services.rag_agent import RAGAgent
+from services.milvus_service import get_milvus_store
 
 
 class AgentService:
-    """智能体管理服务"""
+    """智能体管理服务（统一管理数据库和 RAG 实例）"""
     
     def __init__(self):
-        self.rag_manager = get_rag_manager()
+        # RAG Agent 实例缓存
+        self.rag_agents: Dict[str, RAGAgent] = {}
+        self.milvus_store = get_milvus_store()
+    
+    def get_rag_agent(self, db: Session, agent_name: str) -> RAGAgent:
+        """
+        获取或创建 RAG Agent 实例（自动从数据库读取配置）
+        
+        Args:
+            db: 数据库会话
+            agent_name: 智能体名称
+            
+        Returns:
+            RAGAgent 实例
+            
+        Raises:
+            ValueError: 如果 Agent 不存在
+        """
+        # 如果内存中已存在，直接返回
+        if agent_name in self.rag_agents:
+            return self.rag_agents[agent_name]
+        
+        # 从数据库读取配置
+        db_agent = db.query(Agent).filter(Agent.name == agent_name).first()
+        if not db_agent:
+            raise ValueError(f"Agent 不存在: {agent_name}")
+        
+        # 创建 RAGAgent 实例
+        print(f"ℹ️ 创建新的 RAG Agent 实例: {agent_name}")
+        rag_agent = RAGAgent(
+            agent_name=agent_name,
+            system_prompt=db_agent.system_prompt
+        )
+        self.rag_agents[agent_name] = rag_agent
+        return rag_agent
     
     def create_agent(self, db: Session, agent_data: AgentCreate) -> AgentResponse:
         """创建智能体"""
@@ -47,8 +83,8 @@ class AgentService:
         db.commit()
         db.refresh(agent)
         
-        # 初始化 RAG Agent
-        self.rag_manager.get_agent(agent_data.name, agent_data.system_prompt)
+        # 初始化 RAG Agent（自动从数据库读取）
+        self.get_rag_agent(db, agent_data.name)
         
         print(f"✅ 智能体已创建: {agent_data.name}")
         return self._to_response(db, agent)
@@ -103,8 +139,8 @@ class AgentService:
         agent.updated_at = datetime.utcnow()
         
         # 如果更新了系统提示词，同步到 RAG Agent
-        if update_data.system_prompt:
-            self.rag_manager.update_system_prompt(agent.name, update_data.system_prompt)
+        if update_data.system_prompt and agent.name in self.rag_agents:
+            self.rag_agents[agent.name].update_system_prompt(update_data.system_prompt)
         
         db.commit()
         db.refresh(agent)
@@ -124,7 +160,7 @@ class AgentService:
             raise ValueError(f"无法删除：仍有 {len(agent.conversations)} 个客服在使用此智能体")
         
         # 删除知识库
-        self.rag_manager.clear_knowledge_base(agent.name)
+        self.clear_knowledge_base(agent.name)
         
         # 删除数据库记录
         db.delete(agent)
@@ -133,10 +169,188 @@ class AgentService:
         print(f"✅ 智能体已删除: {agent.name}")
         return {"success": True, "message": f"智能体 {agent.name} 已删除"}
     
+    # ==================== 知识库管理方法 ====================
+    
+    def upload_file(self, db: Session, agent_name: str, file_path: str) -> dict:
+        """
+        为指定智能体上传并向量化文件
+        
+        Args:
+            db: 数据库会话
+            agent_name: 智能体名称
+            file_path: 文件路径
+            
+        Returns:
+            dict: 处理结果
+        """
+        try:
+            rag_agent = self.get_rag_agent(db, agent_name)
+            result = rag_agent.add_document(file_path)
+            return {
+                "success": True,
+                "message": f"文件 {os.path.basename(file_path)} 上传成功",
+                "data": result
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"上传失败: {str(e)}",
+                "data": None
+            }
+    
+    def delete_file(self, db: Session, agent_name: str, file_id: str) -> dict:
+        """
+        删除指定智能体的文件
+        
+        Args:
+            db: 数据库会话
+            agent_name: 智能体名称
+            file_id: 文件ID
+            
+        Returns:
+            dict: 删除结果
+        """
+        try:
+            rag_agent = self.get_rag_agent(db, agent_name)
+            rag_agent.remove_document(file_id)
+            return {
+                "success": True,
+                "message": "文件删除成功"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"删除失败: {str(e)}"
+            }
+    
+    def list_files(self, agent_name: str) -> List[dict]:
+        """
+        列出指定智能体的所有文件
+        
+        Args:
+            agent_name: 智能体名称
+            
+        Returns:
+            list: 文件元数据列表
+        """
+        try:
+            # 直接读取元数据文件，避免创建 Agent 实例
+            metadata_dir = os.getenv("METADATA_DIR", "metadata_store")
+            meta_file = os.path.join(metadata_dir, f"{agent_name}.json")
+            
+            if os.path.exists(meta_file):
+                import json
+                with open(meta_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data.get('files', [])
+            return []
+        except Exception as e:
+            print(f"❌ 获取文件列表失败: {e}")
+            return []
+    
+    def get_statistics(self, agent_name: str) -> dict:
+        """
+        获取指定智能体的知识库统计信息
+        
+        Args:
+            agent_name: 智能体名称
+            
+        Returns:
+            dict: 统计信息
+        """
+        try:
+            # 获取文件元数据
+            files = self.list_files(agent_name)
+            total_files = len(files)
+            total_chunks = sum(f.get("chunks_count", 0) for f in files)
+            total_size = sum(f.get("file_size", 0) for f in files)
+            
+            # 获取 Milvus 统计
+            milvus_stats = self.milvus_store.get_collection_stats(agent_name)
+            actual_vectors = milvus_stats.get("total_vectors", 0)
+            
+            # 数据一致性检查
+            is_consistent = (total_files == 0 and actual_vectors == 0) or (total_files > 0 and actual_vectors > 0)
+            
+            result = {
+                "agent_name": agent_name,
+                "collection_name": milvus_stats.get("collection_name", ""),
+                "total_files": total_files,
+                "total_chunks": total_chunks,
+                "total_vectors": actual_vectors,
+                "total_size_mb": round(total_size / 1024 / 1024, 2),
+                "files": files,
+                "is_consistent": is_consistent
+            }
+            
+            # 如果数据不一致，添加警告信息
+            if not is_consistent:
+                result["warning"] = f"数据不一致：元数据显示 {total_files} 个文件，但向量库中有 {actual_vectors} 个向量"
+                print(f"⚠️ 数据不一致检测 - {agent_name}: 文件={total_files}, 向量={actual_vectors}")
+            
+            return result
+        except Exception as e:
+            print(f"❌ 获取统计信息失败: {e}")
+            return {
+                "agent_name": agent_name,
+                "collection_name": "",
+                "total_files": 0,
+                "total_chunks": 0,
+                "total_vectors": 0,
+                "total_size_mb": 0,
+                "files": []
+            }
+    
+    def clear_knowledge_base(self, agent_name: str) -> dict:
+        """
+        清空指定智能体的知识库（包括向量数据和元数据）
+        
+        Args:
+            agent_name: 智能体名称
+            
+        Returns:
+            dict: 操作结果
+        """
+        try:
+            vector_deleted = False
+            metadata_deleted = False
+            
+            # 1. 移除 agent 实例
+            if agent_name in self.rag_agents:
+                del self.rag_agents[agent_name]
+            
+            # 2. 删除 Milvus Collection（关键：确保向量数据被删除）
+            vector_deleted = self.milvus_store.delete_collection(agent_name)
+            
+            # 3. 删除元数据文件
+            metadata_dir = os.getenv("METADATA_DIR", "metadata_store")
+            meta_file = os.path.join(metadata_dir, f"{agent_name}.json")
+            if os.path.exists(meta_file):
+                os.remove(meta_file)
+                metadata_deleted = True
+            
+            print(f"✅ 知识库已清空: {agent_name} (向量: {'是' if vector_deleted else '否'}, 元数据: {'是' if metadata_deleted else '否'})")
+            
+            return {
+                "success": True,
+                "message": f"{agent_name} 的知识库已清空",
+                "details": {
+                    "vectors_deleted": vector_deleted,
+                    "metadata_deleted": metadata_deleted
+                }
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"清空失败: {str(e)}"
+            }
+    
+    # ==================== 内部辅助方法 ====================
+    
     def _to_response(self, db: Session, agent: Agent) -> AgentResponse:
         """转换为完整响应模型（包含 Milvus 统计）"""
         # 获取知识库统计
-        kb_stats = self.rag_manager.get_statistics(agent.name)
+        kb_stats = self.get_statistics(agent.name)
         
         # 获取使用该智能体的客服列表
         conversations_using = [c.name for c in agent.conversations]
@@ -166,7 +380,7 @@ class AgentService:
     def _to_light_response(self, db: Session, agent: Agent) -> AgentResponse:
         """转换为轻量级响应（只查询元数据，不查询 Milvus）"""
         # 只读取元数据文件，不查询 Milvus
-        files = self.rag_manager.list_files(agent.name)
+        files = self.list_files(agent.name)
         total_files = len(files)
         total_chunks = sum(f.get("chunks_count", 0) for f in files)
         total_size = sum(f.get("file_size", 0) for f in files)
@@ -207,3 +421,15 @@ class AgentService:
             "custom": "你是一个可定制的智能助手。"
         }
         return prompts.get(agent_type, prompts["general"])
+
+
+# 全局单例
+_agent_service_instance: Optional[AgentService] = None
+
+
+def get_agent_service() -> AgentService:
+    """获取 AgentService 单例"""
+    global _agent_service_instance
+    if _agent_service_instance is None:
+        _agent_service_instance = AgentService()
+    return _agent_service_instance

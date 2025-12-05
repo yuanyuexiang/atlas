@@ -8,14 +8,14 @@ from datetime import datetime
 from models.schemas import MessageRequest, MessageResponse
 from models.auth import User
 from services.conversation_service import ConversationService
-from services.multi_rag_manager import get_rag_manager
+from services.agent_service import get_agent_service
 from services.auth_service import get_current_active_user
 from core.database import get_db
 import json
 
 router = APIRouter(prefix="/chat", tags=["对话"])
 conversation_service = ConversationService()
-rag_manager = get_rag_manager()
+agent_service = get_agent_service()
 
 
 @router.post("/{conversation_id}/message", response_model=MessageResponse, summary="发送消息")
@@ -49,7 +49,7 @@ async def send_message(
         agent_name = conversation.agent.name
         
         # 获取 RAG Agent 并回答
-        rag_agent = rag_manager.get_agent(agent_name)
+        rag_agent = agent_service.get_rag_agent(db, agent_name)
         answer = rag_agent.ask(message.content)
         
         # 更新活跃时间
@@ -108,7 +108,7 @@ async def send_message_stream(
         async def generate():
             try:
                 # 获取 RAG Agent
-                rag_agent = rag_manager.get_agent(agent_name)
+                rag_agent = agent_service.get_rag_agent(db, agent_name)
                 
                 # 发送开始标记
                 yield f"data: {json.dumps({'content': '', 'done': False, 'agent_name': agent_name}, ensure_ascii=False)}\n\n"
@@ -174,7 +174,7 @@ async def clear_history(
         
         # 获取智能体并清空历史
         agent_name = conversation.agent.name
-        rag_agent = rag_manager.get_agent(agent_name)
+        rag_agent = agent_service.get_rag_agent(db, agent_name)
         rag_agent.clear_history()
         
         return {
@@ -252,7 +252,7 @@ async def get_chat_history(
         
         # 获取智能体的聊天历史
         agent_name = conversation.agent.name
-        rag_agent = rag_manager.get_agent(agent_name)
+        rag_agent = agent_service.get_rag_agent(db, agent_name)
         
         # 获取历史记录
         chat_history = rag_agent.chat_history

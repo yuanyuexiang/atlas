@@ -6,8 +6,7 @@ from sqlalchemy.orm import Session
 from models.schemas import DocumentUploadResponse, KnowledgeBaseStats
 from models.auth import User
 from models.entities import Agent
-from services.multi_rag_manager import get_rag_manager
-from services.agent_service import AgentService
+from services.agent_service import get_agent_service
 from services.auth_service import get_current_active_user
 from core.database import get_db
 from core.config import settings
@@ -16,8 +15,7 @@ import shutil
 import uuid
 
 router = APIRouter(prefix="/knowledge-base", tags=["知识库管理"])
-rag_manager = get_rag_manager()
-agent_service = AgentService()
+agent_service = get_agent_service()
 
 
 @router.post("/{agent_id}/documents", response_model=DocumentUploadResponse, summary="上传文档")
@@ -68,7 +66,7 @@ async def upload_document(
             raise HTTPException(400, f"文件过大: {file_size / 1024 / 1024:.1f}MB > 10MB")
         
         # 上传到 Milvus（使用 agent.name）
-        result = rag_manager.upload_file(agent.name, temp_path)
+        result = agent_service.upload_file(db, agent.name, temp_path)
         
         if not result["success"]:
             raise HTTPException(500, result["message"])
@@ -107,7 +105,7 @@ async def list_documents(
             raise HTTPException(404, f"智能体不存在: {agent_id}")
         
         # 直接读取文件列表（已优化，不创建 Agent 实例）
-        files = rag_manager.list_files(agent.name)
+        files = agent_service.list_files(agent.name)
         return {"success": True, "data": files}
     except HTTPException:
         raise
@@ -142,7 +140,7 @@ async def delete_document(
             raise HTTPException(404, "智能体不存在")
         
         # 删除文件（包括向量数据和元数据）- 确保级联删除
-        result = rag_manager.delete_file(agent.name, file_id)
+        result = agent_service.delete_file(db, agent.name, file_id)
         
         if not result.get("success"):
             raise HTTPException(500, result.get("message", "删除失败"))
@@ -175,7 +173,7 @@ async def get_knowledge_base_stats(
         if not agent:
             raise HTTPException(404, "智能体不存在")
         
-        stats = rag_manager.get_statistics(agent.name)
+        stats = agent_service.get_statistics(agent.name)
         return {"success": True, "data": stats}
     except ValueError as e:
         raise HTTPException(404, str(e))
@@ -202,7 +200,7 @@ async def clear_knowledge_base(
         if not agent:
             raise HTTPException(404, "智能体不存在")
         
-        result = rag_manager.clear_knowledge_base(agent.name)
+        result = agent_service.clear_knowledge_base(agent.name)
         return result
     except ValueError as e:
         raise HTTPException(404, str(e))
@@ -262,7 +260,7 @@ async def fix_data_inconsistency(
             raise HTTPException(404, "智能体不存在")
         
         # 获取当前统计信息
-        stats = rag_manager.get_statistics(agent.name)
+        stats = agent_service.get_statistics(agent.name)
         
         # 检查是否存在不一致
         if stats.get("is_consistent", True):
@@ -273,10 +271,10 @@ async def fix_data_inconsistency(
             }
         
         # 执行修复：完全清空知识库
-        result = rag_manager.clear_knowledge_base(agent.name)
+        result = agent_service.clear_knowledge_base(agent.name)
         
         # 获取修复后的统计信息
-        new_stats = rag_manager.get_statistics(agent.name)
+        new_stats = agent_service.get_statistics(agent.name)
         
         return {
             "success": True,
