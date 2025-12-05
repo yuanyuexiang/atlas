@@ -106,32 +106,7 @@ class RAGAgent:
         self.agent = create_agent(
             model=model,
             tools=tools,
-            system_prompt=f"""{self.system_prompt}
-
-            【核心工作流程 - 必须严格遵守】
-
-            当用户提问时：
-            1. 使用 knowledge_base_search 工具检索相关信息
-            2. **工具返回的是原始文档，不是最终答案**
-            3. 你必须阅读原始文档，提取关键信息
-            4. 用简洁、自然的语言回答用户问题
-
-            【严格禁止】
-            ❌ 直接把工具返回的原始文档展示给用户
-            ❌ 包含"文档片段"、"检索结果"等技术性词汇
-            ❌ 展示大段未经处理的文本
-
-            【正确做法】
-            ✅ 像人一样理解文档内容
-            ✅ 提取与问题相关的信息
-            ✅ 用自然对话的方式回答
-
-            【示例】
-            用户："XXX有什么特点？"
-            工具返回：[大段原始文档...]
-            你的回答："根据资料，XXX的特点是...[简洁总结]"
-
-            记住：工具只是帮你找资料，最终答案需要你自己组织！"""
+            system_prompt=self.system_prompt
         )
         
         print(f"✅ LangChain v1.0+ Agent 创建成功 (create_agent): {self.agent_name}")
