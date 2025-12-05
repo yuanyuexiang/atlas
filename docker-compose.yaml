@@ -10,10 +10,15 @@ services:
       - DATABASE_URL=postgresql://postgres:p0stgr3s@117.72.204.201:5432/atlas
       - MILVUS_HOST=117.72.204.201
       - MILVUS_PORT=19530
-      - OPENAI_API_KEY=sk-ispsfhypumyaekrzbklivoyuhinbqmvlfhdnzyilxcojluez
-      - OPENAI_BASE_URL=https://api.siliconflow.cn/v1
-      - CHAT_MODEL=Qwen/Qwen3-8B
-      - EMBEDDING_MODEL=Qwen/Qwen3-Embedding-0.6B
+      #- OPENAI_API_KEY=sk-ispsfhypumyaekrzbklivoyuhinbqmvlfhdnzyilxcojluez
+      #- OPENAI_BASE_URL=https://api.siliconflow.cn/v1
+      #- CHAT_MODEL=Qwen/Qwen3-8B
+      #- EMBEDDING_MODEL=Qwen/Qwen3-Embedding-0.6B
+      - OPENAI_API_KEY=sk-a9b7b3f7a7eb44689f6f16a38bb2c097
+      - OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+      - CHAT_MODEL=qwen-max
+      - EMBEDDING_MODEL=text-embedding-v3
+      # JWT 相关配置
       - JWT_SECRET_KEY=matrix-net-tech
       - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
       - DEBUG=false
