@@ -14,6 +14,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain.agents import create_agent
 from langchain_core.tools import tool
+from langchain_core.tools import StructuredTool
 from services.milvus_service import get_milvus_store
 
 load_dotenv()
@@ -99,8 +100,35 @@ class RAGAgent:
             
             # 简洁返回，不加任何"文档片段"标签
             return "\n\n".join(r['content'] for r in results[:3])
+
+
+        # 定义检索工具
+        def retrieve_context(query: str) -> str:
+            """从知识库检索相关内容"""
+            # 使用 similarity_search_with_score 获取分数,提高确定性
+            results = self.vector_store.similarity_search_with_score(query, k=3)
+            
+            # 按分数排序(分数越低越相似)
+            results_sorted = sorted(results, key=lambda x: x[1])
+            
+            # 只使用前2个最相关的结果
+            retrieved_docs = [doc for doc, score in results_sorted[:2]]
+            
+            serialized = "\n\n".join(
+                f"Content: {doc.page_content}"
+                for doc in retrieved_docs
+            )
+            return serialized
         
-        tools = [knowledge_base_search]
+        retrieve_tool = StructuredTool.from_function(
+            func=retrieve_context,
+            name="retrieve_context",
+            description="根据用户问题,从知识库中检索相关内容。",
+        )
+        
+        tools = [retrieve_tool]
+        
+        #tools = [knowledge_base_search]
         
         # 3. 使用 create_agent（LangChain v1.0+ 官方推荐 API）
         self.agent = create_agent(
@@ -109,7 +137,7 @@ class RAGAgent:
             system_prompt=self.system_prompt
         )
         
-        print(f"✅ LangChain v1.0+ Agent 创建成功 (create_agent): {self.agent_name}")
+        print(f"✅ LangChain v1.0+ Agent 创建成功 (create_agent): {self.agent_name} and system_prompt ({self.system_prompt})")
     
     def ask(self, question: str) -> str:
         """
@@ -236,13 +264,6 @@ class RAGAgent:
             import traceback
             traceback.print_exc()
             yield "抱歉，处理您的问题时出现了错误。"
-    
-    def _retrieve_for_agent(self, query: str) -> str:
-        """Agent 内部使用的检索方法"""
-        results = self.milvus_store.search_similar(self.agent_name, query, top_k=2)
-        if not results:
-            return "未找到相关内容"
-        return "\n\n".join(r["content"] for r in results[:2])
     
     def add_document(self, file_path: str) -> dict:
         """
