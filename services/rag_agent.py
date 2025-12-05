@@ -23,16 +23,22 @@ load_dotenv()
 class RAGAgent:
     """基于 Milvus 的 RAG Agent"""
     
-    def __init__(self, agent_name: str, system_prompt: str = None):
+    def __init__(self, agent_name: str, system_prompt: str):
         """
         初始化 RAG Agent
         
         Args:
             agent_name: 智能体名称
-            system_prompt: 系统提示词
+            system_prompt: 系统提示词（必填）
+        
+        Raises:
+            ValueError: 如果 system_prompt 为空
         """
+        if not system_prompt or not system_prompt.strip():
+            raise ValueError("system_prompt 不能为空，必须提供有效的系统提示词")
+        
         self.agent_name = agent_name
-        self.system_prompt = system_prompt
+        self.system_prompt = system_prompt.strip()
         self.milvus_store = get_milvus_store()
         self.vector_store = None
         self.agent = None

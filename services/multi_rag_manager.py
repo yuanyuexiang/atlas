@@ -15,24 +15,28 @@ class MultiRAGManager:
         self.agents: Dict[str, RAGAgent] = {}
         self.milvus_store = get_milvus_store()
     
-    def get_agent(self, agent_name: str, system_prompt: str = None) -> RAGAgent:
+    def get_agent(self, agent_name: str, system_prompt: str) -> RAGAgent:
         """
         获取或创建指定智能体的 Agent
         
         Args:
             agent_name: 智能体名称
-            system_prompt: 系统提示词（可选）
+            system_prompt: 系统提示词（必填）
             
         Returns:
             RAGAgent 实例
+            
+        Raises:
+            ValueError: 如果 system_prompt 为空
         """
         if agent_name in self.agents:
             # 如果提供了新的 system_prompt，更新它
-            if system_prompt and system_prompt != self.agents[agent_name].system_prompt:
+            if system_prompt != self.agents[agent_name].system_prompt:
                 self.agents[agent_name].update_system_prompt(system_prompt)
             return self.agents[agent_name]
+        
         print(f"ℹ️ 创建新的 RAG Agent 实例: {agent_name} with system_prompt: {system_prompt}")
-        # 创建新的 Agent
+        # 创建新的 Agent（会自动验证 system_prompt）
         agent = RAGAgent(agent_name=agent_name, system_prompt=system_prompt)
         self.agents[agent_name] = agent
         return agent
