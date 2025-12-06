@@ -19,6 +19,13 @@ class AgentStatus(str, Enum):
     ERROR = "error"          # 错误
 
 
+class DocumentStatus(str, Enum):
+    """文档状态"""
+    PROCESSING = "processing"  # 处理中
+    READY = "ready"            # 就绪
+    FAILED = "failed"          # 失败
+
+
 class AgentType(str, Enum):
     """智能体类型"""
     GENERAL = "general"      # 通用
@@ -54,6 +61,33 @@ class Agent(Base):
     
     # 关联关系
     conversations = relationship("Conversation", back_populates="agent")
+    documents = relationship("Document", back_populates="agent", cascade="all, delete-orphan")
+
+
+class Document(Base):
+    """文档实体（知识库文件）"""
+    __tablename__ = "documents"
+    
+    id = Column(String(36), primary_key=True)
+    agent_id = Column(String(36), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    
+    # 文件信息
+    filename = Column(String(255), nullable=False)
+    file_size = Column(Integer)  # 字节
+    file_type = Column(String(20))  # pdf, txt, md
+    
+    # 处理状态
+    status = Column(SQLEnum(DocumentStatus), default=DocumentStatus.PROCESSING)
+    chunks_count = Column(Integer, default=0)  # 分块数量
+    processing_progress = Column(Integer, default=0)  # 0-100
+    error_message = Column(Text)
+    
+    # 元数据
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+    processed_at = Column(DateTime)  # 处理完成时间
+    
+    # 关联关系
+    agent = relationship("Agent", back_populates="documents")
 
 
 class ConversationStatus(str, Enum):

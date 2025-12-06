@@ -6,12 +6,12 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from models.schemas import AgentCreate, AgentUpdate, AgentResponse
 from models.auth import User
-from services.agent_service import AgentService
+from services.agent_service import get_agent_service
 from services.auth_service import get_current_active_user
 from core.database import get_db
 
 router = APIRouter(prefix="/agents", tags=["智能体管理"])
-agent_service = AgentService()
+agent_service = get_agent_service()
 
 
 @router.post("", response_model=AgentResponse, summary="创建智能体")
@@ -29,10 +29,17 @@ async def create_agent(
     - **system_prompt**: 系统提示词（可选，为空则使用默认）
     """
     try:
-        return agent_service.create_agent(db, agent_data)
+        result = agent_service.create_agent(db, agent_data)
+        print(f"🔍 [DEBUG] create_agent 返回类型: {type(result)}")
+        print(f"🔍 [DEBUG] create_agent 返回值: {result}")
+        return result
     except ValueError as e:
+        print(f"❌ [ERROR] ValueError: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        print(f"❌ [ERROR] Exception: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"创建失败: {str(e)}")
 
 

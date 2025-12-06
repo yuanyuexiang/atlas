@@ -1,14 +1,14 @@
 """
 知识库管理 API 路由
 """
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 from models.schemas import DocumentUploadResponse, KnowledgeBaseStats
 from models.auth import User
 from models.entities import Agent
 from services.agent_service import get_agent_service
 from services.auth_service import get_current_active_user
-from core.database import get_db
+from core.database import get_db, SessionLocal
 from core.config import settings
 import os
 import shutil
@@ -18,23 +18,38 @@ router = APIRouter(prefix="/knowledge-base", tags=["知识库管理"])
 agent_service = get_agent_service()
 
 
+def process_document_background(agent_name: str, temp_path: str):
+    """后台处理文档（使用独立的数据库会话）"""
+    db = SessionLocal()
+    try:
+        print(f"📝 [后台任务] 开始处理文档: {temp_path}")
+        result = agent_service.upload_file(db, agent_name, temp_path)
+        print(f"✅ [后台任务] 文档处理完成: {result.get('message')}")
+    except Exception as e:
+        print(f"❌ [后台任务] 文档处理失败: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        db.close()
+
+
 @router.post("/{agent_id}/documents", response_model=DocumentUploadResponse, summary="上传文档")
 async def upload_document(
     agent_id: str,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="支持 PDF、TXT、MD 格式"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    为智能体上传知识库文档并自动向量化
+    为智能体上传知识库文档并自动向量化（异步处理）
     
     参数：agent_id (UUID)
     
     流程：
     1. 保存临时文件
-    2. 文档解析和文本切分
-    3. 向量化并存入 Milvus
-    4. 保存元数据
+    2. 立即返回 processing 状态
+    3. 后台异步处理：文档解析、文本切分、向量化
     """
     try:
         # 验证智能体存在并获取 name
@@ -65,21 +80,20 @@ async def upload_document(
             os.remove(temp_path)
             raise HTTPException(400, f"文件过大: {file_size / 1024 / 1024:.1f}MB > 10MB")
         
-        # 上传到 Milvus（使用 agent.name）
-        result = agent_service.upload_file(db, agent.name, temp_path)
+        # 添加后台任务处理文档（不传递 db session）
+        background_tasks.add_task(process_document_background, agent.name, temp_path)
         
-        if not result["success"]:
-            raise HTTPException(500, result["message"])
+        print(f"✅ 文档已接收,开始后台处理: {file.filename}")
         
-        data = result["data"]
+        # 立即返回 processing 状态
         return DocumentUploadResponse(
-            file_id=data["file_id"],
-            filename=data["filename"],
-            chunks_count=data["chunks_count"],
-            upload_time=data.get("upload_time", ""),
-            status=data.get("status", "ready"),  # ✅ 新增
-            processing_progress=data.get("processing_progress", 100),  # ✅ 新增
-            error_message=data.get("error_message")  # ✅ 新增
+            file_id=file_id,
+            filename=file.filename,
+            chunks_count=0,
+            upload_time="",
+            status="processing",
+            processing_progress=0,
+            error_message=None
         )
         
     except HTTPException:
