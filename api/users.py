@@ -9,7 +9,7 @@ from core.database import get_db
 from schemas.auth_schemas import UserResponse, UserCreate, UserUpdate
 from application.auth_service import get_current_superuser
 from application.user_service import UserService
-from models.auth import User
+from domain.auth import User
 
 router = APIRouter(prefix="/users", tags=["用户管理"])
 

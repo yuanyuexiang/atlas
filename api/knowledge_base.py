@@ -4,8 +4,8 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 from schemas.schemas import DocumentUploadResponse, KnowledgeBaseStats
-from models.auth import User
-from models.entities import Agent
+from domain.auth import User
+from domain.entities import Agent
 from application.agent_service import get_agent_service
 from application.auth_service import get_current_active_user
 from core.database import get_db, SessionLocal
@@ -113,7 +113,7 @@ async def list_documents(
     """获取智能体的所有文档列表，参数：agent_id (UUID)"""
     try:
         # 轻量级验证：只检查智能体是否存在（不构建完整响应）
-        from models.entities import Agent
+        from domain.entities import Agent
         agent = db.query(Agent).filter(Agent.id == agent_id).first()
         if not agent:
             raise HTTPException(404, f"智能体不存在: {agent_id}")
@@ -147,7 +147,7 @@ async def delete_document(
     """
     try:
         # 轻量级验证智能体存在（不构建完整响应）
-        from models.entities import Agent
+        from domain.entities import Agent
         agent = db.query(Agent).filter(Agent.id == agent_id).first()
         
         if not agent:
@@ -182,7 +182,7 @@ async def get_knowledge_base_stats(
     """
     try:
         # 验证智能体存在并获取 name
-        from models.entities import Agent
+        from domain.entities import Agent
         agent = db.query(Agent).filter(Agent.id == agent_id).first()
         if not agent:
             raise HTTPException(404, "智能体不存在")
@@ -209,7 +209,7 @@ async def clear_knowledge_base(
     """
     try:
         # 验证智能体存在并获取 name
-        from models.entities import Agent
+        from domain.entities import Agent
         agent = db.query(Agent).filter(Agent.id == agent_id).first()
         if not agent:
             raise HTTPException(404, "智能体不存在")
@@ -236,7 +236,7 @@ async def rebuild_knowledge_base(
     """
     try:
         # 验证智能体存在
-        from models.entities import Agent
+        from domain.entities import Agent
         agent = db.query(Agent).filter(Agent.id == agent_id).first()
         if not agent:
             raise HTTPException(404, "智能体不存在")
@@ -268,7 +268,7 @@ async def fix_data_inconsistency(
     """
     try:
         # 验证智能体存在
-        from models.entities import Agent
+        from domain.entities import Agent
         agent = db.query(Agent).filter(Agent.id == agent_id).first()
         if not agent:
             raise HTTPException(404, "智能体不存在")

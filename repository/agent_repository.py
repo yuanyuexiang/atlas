@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from models.entities import Agent, AgentStatus, AgentType, Document, DocumentStatus
+from domain.entities import Agent, AgentStatus, AgentType, Document, DocumentStatus
 
 
 class AgentRepository:

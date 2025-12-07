@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from core.auth_config import auth_settings
 from core.database import get_db
-from models.auth import User
+from domain.auth import User
 from schemas.auth_schemas import TokenData
 
 # HTTP Bearer Token 认证（auto_error=False 允许手动处理认证错误）

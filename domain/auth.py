@@ -3,7 +3,7 @@
 """
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Boolean
-from models.entities import Base
+from domain.entities import Base
 
 
 class User(Base):

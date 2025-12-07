@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from models.entities import Conversation, ConversationStatus, Agent, AgentSwitchLog
+from domain.entities import Conversation, ConversationStatus, Agent, AgentSwitchLog
 from schemas.schemas import (
     ConversationCreate, ConversationUpdate, ConversationResponse,
     AgentInfo, AgentSwitchRequest, AgentSwitchResponse
@@ -134,7 +134,7 @@ class ConversationService:
     
     def delete_conversation(self, db: Session, conversation_name: str) -> dict:
         """删除客服 - 支持 name 或 id"""
-        from models.entities import AgentSwitchLog
+        from domain.entities import AgentSwitchLog
         
         # 尝试作为 UUID 查询
         conversation = db.query(Conversation).filter(

@@ -8,7 +8,7 @@ from schemas.schemas import (
     ConversationCreate, ConversationUpdate, ConversationResponse,
     AgentSwitchRequest, AgentSwitchResponse
 )
-from models.auth import User
+from domain.auth import User
 from application.conversation_service import ConversationService
 from application.auth_service import get_current_active_user
 from core.database import get_db

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from domain.processors.document_processor import DocumentProcessor
 from domain.processors.vector_store_manager import VectorStoreManager
 from repository.agent_repository import DocumentRepository
-from models.entities import Document, DocumentStatus
+from domain.entities import Document, DocumentStatus
 
 
 class KnowledgeBaseService:

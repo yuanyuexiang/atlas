@@ -11,7 +11,7 @@ from core.auth_config import auth_settings
 from schemas.auth_schemas import Token, LoginRequest, UserCreate, UserResponse, UserUpdate
 from application.auth_service import authenticate_user, create_access_token, get_current_user, get_current_superuser
 from application.user_service import UserService
-from models.auth import User
+from domain.auth import User
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.database import SessionLocal, init_db
 from application.user_service import UserService
-from models.auth import User
+from domain.auth import User
 
 
 def create_default_admin():

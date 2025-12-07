@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from models.entities import Agent, AgentStatus, AgentType
+from domain.entities import Agent, AgentStatus, AgentType
 from schemas.schemas import AgentCreate, AgentUpdate, AgentResponse, KnowledgeBaseInfo
 from repository.agent_repository import AgentRepository
 from domain.managers.rag_agent_manager import RAGAgentManager, get_rag_agent_manager

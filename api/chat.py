@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
 from schemas.schemas import MessageRequest, MessageResponse
-from models.auth import User
+from domain.auth import User
 from application.conversation_service import ConversationService
 from application.agent_service import get_agent_service
 from application.auth_service import get_current_active_user

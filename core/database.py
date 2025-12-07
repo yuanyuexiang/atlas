@@ -33,7 +33,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
     """初始化数据库表"""
-    from models.entities import Base
+    from domain.entities import Base
     Base.metadata.create_all(bind=engine)
     print("✅ 数据库表已初始化")
 
