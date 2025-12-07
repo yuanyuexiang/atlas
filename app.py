@@ -5,8 +5,8 @@ Atlas 智能客服后端系统
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from core.config import settings
-from core.database import init_db
+from config.settings import settings
+from config.database import init_db
 from api import agents, conversations, knowledge_base, chat, auth, users
 
 

@@ -5,7 +5,7 @@
 import sys
 from sqlalchemy.orm import Session
 
-from core.database import SessionLocal, init_db
+from config.database import SessionLocal, init_db
 from application.user_service import UserService
 from domain.auth import User
 

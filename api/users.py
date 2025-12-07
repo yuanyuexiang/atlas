@@ -5,8 +5,8 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
-from core.database import get_db
-from schemas.auth_schemas import UserResponse, UserCreate, UserUpdate
+from config.database import get_db
+from api.schemas.auth import UserResponse, UserCreate, UserUpdate
 from application.auth_service import get_current_superuser
 from application.user_service import UserService
 from domain.auth import User

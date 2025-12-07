@@ -317,19 +317,20 @@ class AgentRepository:
   - 相似度搜索（top_k=5）
   - 分数阈值过滤
 
-#### 4. **DTO 层** (schemas/)
+#### 4. **API 路由层 + Schema** (api/)
 
-**schemas/schemas.py** (业务 Pydantic DTO)
-- **职责**: API 输入输出验证，数据传输对象
-- **模型**: AgentCreate, AgentResponse, DocumentUpload, ConversationCreate 等
-- **验证规则**: 长度限制、类型检查、必填项约束
+**API 路由** (api/*.py)
 
-**schemas/auth_schemas.py** (认证 DTO)
-- **职责**: 认证相关的数据传输对象
-- **模型**: UserCreate, UserLogin, Token, TokenPayload
-- **密码验证**: 最小长度、复杂度要求
-
-#### 5. **API 路由层** (api/)
+**API Schema** (api/schemas/)
+- **职责**: Pydantic DTO，API 请求/响应验证
+- **按业务模块拆分**:
+  - `agent.py` - 智能体相关 Schema（AgentCreate, AgentResponse 等）
+  - `conversation.py` - 客服相关 Schema（ConversationCreate, AgentSwitchRequest 等）
+  - `knowledge_base.py` - 知识库相关 Schema（DocumentUploadResponse, KnowledgeBaseStats）
+  - `chat.py` - 聊天相关 Schema（MessageRequest, MessageResponse）
+  - `auth.py` - 认证相关 Schema（UserCreate, UserLogin, Token）
+  - `common.py` - 通用 Schema（SuccessResponse, ErrorResponse）
+- **设计理念**: Schema 与 API 路由放在同一层，强调内聚性和 Python 社区实践
 
 **api/agents.py** (智能体管理 API)
 - POST `/agents` - 创建智能体
@@ -1611,7 +1612,16 @@ atlas/
 │   ├── knowledge_base.py       # 知识库管理（异步上传）
 │   ├── chat.py                 # 对话接口（流式/非流式）
 │   ├── auth.py                 # 认证授权（登录/注册）
-│   └── users.py                # 用户管理
+│   ├── users.py                # 用户管理
+│   │
+│   └── schemas/                # API Schema 层（Pydantic DTO）⭐
+│       ├── __init__.py
+│       ├── agent.py            # 智能体相关 Schema
+│       ├── conversation.py     # 客服相关 Schema
+│       ├── knowledge_base.py   # 知识库相关 Schema
+│       ├── chat.py             # 聊天相关 Schema
+│       ├── auth.py             # 认证相关 Schema
+│       └── common.py           # 通用 Schema
 │
 ├── application/                # 应用服务层（业务流程编排）⭐
 │   ├── __init__.py
@@ -1747,22 +1757,26 @@ atlas/
 **🔄 目录结构重构**
 - ✅ **services/ → application/** - 应用服务层标准命名（符合 DDD 术语）
 - ✅ **models/ → domain/** - ORM 实体归属领域层（符合 DDD 实体定义）
-- ✅ **schemas/ 独立** - DTO 层独立（Pydantic 数据传输对象）
+- ✅ **schemas/ → api/schemas/** - Schema 归属表现层，按业务模块拆分（7个文件）
 - ✅ **domain/ 完善** - 领域层包含实体（entities.py/auth.py）、管理器（managers/）、处理器（processors/）
 - ✅ **repository/ 标准化** - Repository 模式（AgentRepository + DocumentRepository）
 
 **📐 架构模式强化**
 - ✅ **四层架构完善**: API → Application → Domain → Repository
 - ✅ **DDD 分层对应**:
-  - 表现层 (Presentation) → `api/`
+  - 表现层 (Presentation) → `api/` + `api/schemas/`
   - 应用服务层 (Application) → `application/`
-  - 领域层 (Domain) → `domain/`
+  - 领域层 (Domain) → `domain/`（含实体、管理器、处理器）
   - 基础设施层 (Infrastructure) → `repository/` + `core/`
-- ✅ **设计原则**: 标准命名、清晰分层、单一职责
+- ✅ **设计原则**: 标准命名、清晰分层、实用主义、Python 社区最佳实践
 
 **🛠️ 重构工具**
-- ✅ 自动化重构脚本 2 个（refactor_to_standard_ddd.py + refactor_models_to_domain.py）
-- ✅ 批量更新 30+ 文件的 import 语句
+- ✅ 自动化重构脚本 3 个
+  - refactor_to_standard_ddd.py（services → application）
+  - refactor_models_to_domain.py（models → domain）
+  - refactor_schemas_to_api.py（schemas → api/schemas，按模块拆分）
+- ✅ 批量更新 40+ 文件的 import 语句
+- ✅ Schema 按业务模块拆分（7 个文件）
 - ✅ 语法验证和功能测试通过
 
 **📚 文档更新**

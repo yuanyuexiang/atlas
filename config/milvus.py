@@ -28,7 +28,7 @@ class MilvusSettings(BaseSettings):
 
 def get_milvus_settings() -> MilvusSettings:
     """获取 Milvus 配置"""
-    from core.config import settings
+    from config.settings import settings
     return MilvusSettings(
         host=settings.MILVUS_HOST,
         port=settings.MILVUS_PORT,

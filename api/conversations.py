@@ -4,14 +4,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Optional
-from schemas.schemas import (
+from api.schemas import (
     ConversationCreate, ConversationUpdate, ConversationResponse,
     AgentSwitchRequest, AgentSwitchResponse
 )
 from domain.auth import User
 from application.conversation_service import ConversationService
 from application.auth_service import get_current_active_user
-from core.database import get_db
+from config.database import get_db
 
 router = APIRouter(prefix="/conversations", tags=["客服管理"])
 conversation_service = ConversationService()

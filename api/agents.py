@@ -4,11 +4,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Optional
-from schemas.schemas import AgentCreate, AgentUpdate, AgentResponse
+from api.schemas import AgentCreate, AgentUpdate, AgentResponse
 from domain.auth import User
 from application.agent_service import get_agent_service
 from application.auth_service import get_current_active_user
-from core.database import get_db
+from config.database import get_db
 
 router = APIRouter(prefix="/agents", tags=["智能体管理"])
 agent_service = get_agent_service()

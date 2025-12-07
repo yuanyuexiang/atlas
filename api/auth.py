@@ -6,9 +6,9 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from core.database import get_db
-from core.auth_config import auth_settings
-from schemas.auth_schemas import Token, LoginRequest, UserCreate, UserResponse, UserUpdate
+from config.database import get_db
+from config.auth import auth_settings
+from api.schemas.auth import Token, UserLogin, UserCreate, UserResponse, UserUpdate
 from application.auth_service import authenticate_user, create_access_token, get_current_user, get_current_superuser
 from application.user_service import UserService
 from domain.auth import User
@@ -37,7 +37,7 @@ async def register(user_create: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
+async def login(login_data: UserLogin, db: Session = Depends(get_db)):
     """
     用户登录
     

@@ -10,10 +10,10 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
-from core.auth_config import auth_settings
-from core.database import get_db
+from config.auth import auth_settings
+from config.database import get_db
 from domain.auth import User
-from schemas.auth_schemas import TokenData
+from api.schemas.auth import TokenData
 
 # HTTP Bearer Token 认证（auto_error=False 允许手动处理认证错误）
 security = HTTPBearer(auto_error=True)

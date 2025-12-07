@@ -7,7 +7,7 @@ from langchain_milvus import Milvus
 from langchain_openai import OpenAIEmbeddings
 from typing import List, Optional, Dict
 import os
-from core.milvus_config import milvus_settings
+from config.milvus import milvus_settings
 
 
 class MilvusVectorStore:

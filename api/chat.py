@@ -5,12 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
-from schemas.schemas import MessageRequest, MessageResponse
+from api.schemas import MessageRequest, MessageResponse
 from domain.auth import User
 from application.conversation_service import ConversationService
 from application.agent_service import get_agent_service
 from application.auth_service import get_current_active_user
-from core.database import get_db
+from config.database import get_db
 import json
 
 router = APIRouter(prefix="/chat", tags=["对话"])
