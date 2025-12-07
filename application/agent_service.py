@@ -98,12 +98,18 @@ class AgentService:
         self,
         db: Session,
         status: Optional[str] = None,
+        agent_type: Optional[str] = None,
         skip: int = 0,
         limit: int = 100
     ) -> List[AgentResponse]:
         """获取智能体列表"""
         status_enum = AgentStatus(status) if status else None
         agents = self.agent_repo.list_all(db, status_enum, skip, limit)
+        
+        # 如果指定了 agent_type，进行过滤
+        if agent_type:
+            agents = [a for a in agents if a.agent_type.value == agent_type]
+        
         return [self._to_response(db, agent) for agent in agents]
     
     def update_agent(
