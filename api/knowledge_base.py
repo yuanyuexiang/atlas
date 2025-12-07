@@ -112,14 +112,14 @@ async def list_documents(
 ):
     """获取智能体的所有文档列表，参数：agent_id (UUID)"""
     try:
-        # 轻量级验证：只检查智能体是否存在（不构建完整响应）
+        # 轻量级验证:只检查智能体是否存在(不构建完整响应)
         from domain.entities import Agent
         agent = db.query(Agent).filter(Agent.id == agent_id).first()
         if not agent:
             raise HTTPException(404, f"智能体不存在: {agent_id}")
         
-        # 直接读取文件列表（已优化，不创建 Agent 实例）
-        files = agent_service.list_files(agent.name)
+        # 直接读取文件列表(已优化,不创建 Agent 实例)
+        files = agent_service.list_files(db, agent_id)
         return {"success": True, "data": files}
     except HTTPException:
         raise
@@ -214,7 +214,7 @@ async def clear_knowledge_base(
         if not agent:
             raise HTTPException(404, "智能体不存在")
         
-        result = agent_service.clear_knowledge_base(agent.name)
+        result = agent_service.clear_knowledge_base(db, agent_id, agent.name)
         return result
     except ValueError as e:
         raise HTTPException(404, str(e))
@@ -285,7 +285,7 @@ async def fix_data_inconsistency(
             }
         
         # 执行修复：完全清空知识库
-        result = agent_service.clear_knowledge_base(agent.name)
+        result = agent_service.clear_knowledge_base(db, agent_id, agent.name)
         
         # 获取修复后的统计信息
         new_stats = agent_service.get_statistics(agent.name)
