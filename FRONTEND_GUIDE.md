@@ -1,4 +1,4 @@
-# Echo 智能客服前端开发指导文档
+# Atlas 智能客服前端开发指导文档
 
 > ⚠️ **重要提示**: 应用配置了 ROOT_PATH="/atlas"，所有 API 路径需加上 `/atlas` 前缀  
 > - 生产环境: `https://atlas.matrix-net.tech/atlas/api/*`  
@@ -27,7 +27,7 @@
 
 ## 系统概述
 
-Echo 是一个基于 RAG（检索增强生成）的智能客服系统，采用**三层解耦架构**：
+Atlas 是一个基于 RAG（检索增强生成）的智能客服系统，采用**三层解耦架构**：
 
 ```
 客服界面层（Conversation）

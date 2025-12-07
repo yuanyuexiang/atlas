@@ -1,4 +1,4 @@
-# Echo 智能客服后端系统
+# Atlas 智能客服后端系统
 
 > 基于 **FastAPI + PostgreSQL + Milvus + LangChain** 构建的企业级智能客服 API 系统  
 > 采用 **Repository + Manager + Service + Facade** 四层架构，代码精简 46%
@@ -48,7 +48,7 @@
 
 ### RAG（检索增强生成）工作流程
 
-Echo 采用 RAG 技术实现智能问答，核心流程如下：
+Atlas 采用 RAG 技术实现智能问答，核心流程如下：
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -172,7 +172,7 @@ prompt = f"""
 客服 C → 知识库 C
 ```
 
-**Echo 的解耦设计**：
+**Atlas 的解耦设计**：
 ```
 客服 A ──┐
 客服 B ──┼→ 智能体 X → 知识库 X  ✅ 共享知识，统一管理
@@ -272,9 +272,9 @@ class AgentRepository:
   - `get_statistics()`: 获取集合统计信息
 - **封装优势**: 隐藏 Milvus 细节，易于切换向量库
 
-#### 3. **应用服务层** (services/)
+#### 3. **应用服务层** (application/)
 
-**services/agent_service.py** (250 行 - Facade 协调器)
+**application/agent_service.py** (250 行 - Facade 协调器)
 - **职责**: 统一的智能体管理入口，协调各子系统
 - **模式**: Facade 模式 + 依赖注入
 - **依赖**: AgentRepository, RAGAgentManager, KnowledgeBaseService
@@ -285,7 +285,7 @@ class AgentRepository:
   - `update_agent()`: 更新智能体
   - `delete_agent()`: 删除智能体（级联删除知识库）
 
-**services/knowledge_base_service.py** (240 行 - 知识库服务)
+**application/knowledge_base_service.py** (240 行 - 知识库服务)
 - **职责**: 知识库业务逻辑协调
 - **模式**: Service 模式 + 依赖注入
 - **依赖**: DocumentProcessor, VectorStoreManager, DocumentRepository
@@ -295,7 +295,7 @@ class AgentRepository:
   3. 向量化存储（Milvus）
   4. 更新状态（ready/failed）
 
-**services/rag_agent.py** (RAG 核心逻辑)
+**application/rag_agent.py** (RAG 核心逻辑)
 - **职责**: 基于 LangChain 的 RAG Agent 实现
 - **功能**:
   - 检索增强生成（Retrieval-Augmented Generation）
@@ -306,7 +306,19 @@ class AgentRepository:
   - 相似度搜索（top_k=5）
   - 分数阈值过滤
 
-#### 2. **API 路由层** (api/)
+#### 4. **DTO 层** (schemas/)
+
+**schemas/schemas.py** (业务 Pydantic DTO)
+- **职责**: API 输入输出验证，数据传输对象
+- **模型**: AgentCreate, AgentResponse, DocumentUpload, ConversationCreate 等
+- **验证规则**: 长度限制、类型检查、必填项约束
+
+**schemas/auth_schemas.py** (认证 DTO)
+- **职责**: 认证相关的数据传输对象
+- **模型**: UserCreate, UserLogin, Token, TokenPayload
+- **密码验证**: 最小长度、复杂度要求
+
+#### 5. **API 路由层** (api/)
 
 **api/agents.py** (智能体管理 API)
 - POST `/agents` - 创建智能体
@@ -688,15 +700,15 @@ hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
 ## 🏗️ 架构设计
 
-### 系统架构（标准 DDD 分层）
+### 系统架构（标准 DDD 四层架构）
 
-Echo 采用**领域驱动设计(DDD)**的标准分层架构，目录结构清晰反映各层职责：
+Atlas 采用**领域驱动设计(DDD)**的标准四层架构，清晰的目录结构直观反映各层职责：
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    API 路由层 (api/)                             │
 │  • JWT 认证中间件 (get_current_user)                            │
-│  • 请求参数验证 (Pydantic Models)                               │
+│  • 请求参数验证 (Pydantic DTO from schemas/)                    │
 │  • HTTP 响应处理 (JSON/SSE Stream)                              │
 │                                                                  │
 │  api/agents.py, api/chat.py, api/knowledge_base.py ...         │
@@ -704,19 +716,19 @@ Echo 采用**领域驱动设计(DDD)**的标准分层架构，目录结构清晰
                          │ 依赖注入
                          ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                应用服务层 (services/) - Service/Facade           │
+│              应用服务层 (application/) - Application Service      │
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  AgentService (Facade 协调器)                            │   │
 │  │  • 协调 Repository、Manager、KnowledgeBaseService        │   │
-│  │  • 提供统一的业务接口                                     │   │
+│  │  • 业务流程编排，不包含业务规则                           │   │
 │  │  • 代码量: 250 行 (从 460 行精简 46%)                    │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                                                                  │
 │  ┌──────────────────┐  ┌──────────────────┐                    │
 │  │ KnowledgeBase    │  │ RAGAgent         │                    │
 │  │ Service          │  │ (LangChain RAG)  │                    │
-│  │ • 文档上传        │  │ • 检索增强生成    │                    │
+│  │ • 文档上传编排    │  │ • 检索增强生成    │                    │
 │  │ • 向量化协调      │  │ • 对话历史        │                    │
 │  │ • 状态追踪        │  │ • 流式响应        │                    │
 │  └──────────────────┘  └──────────────────┘                    │
@@ -727,7 +739,7 @@ Echo 采用**领域驱动设计(DDD)**的标准分层架构，目录结构清晰
 │                   领域层 (domain/) - Domain Layer                │
 │                                                                  │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │  domain/managers/ - 领域管理器                            │  │
+│  │  domain/managers/ - 领域管理器（生命周期管理）             │  │
 │  │  • RAGAgentManager: RAG 实例生命周期管理（130 行）        │  │
 │  │  • 内存缓存: Dict[agent_name, RAGAgent]                  │  │
 │  │  • 单例模式: 全局唯一管理器                               │  │
@@ -751,11 +763,11 @@ Echo 采用**领域驱动设计(DDD)**的标准分层架构，目录结构清晰
 │  │  repository/agent_repository.py         │                    │
 │  │  • AgentRepository: 纯 CRUD (150 行)   │                    │
 │  │  • DocumentRepository: 文件元数据       │                    │
-│  │  • 数据库操作封装，无业务逻辑            │                    │
+│  │  • 数据库操作封装，零业务逻辑            │                    │
 │  └────────────────────────────────────────┘                    │
 │                                                                  │
 │  ┌────────────────────────────────────────┐                    │
-│  │  services/milvus_service.py            │                    │
+│  │  application/milvus_service.py         │                    │
 │  │  • Collection 管理                      │                    │
 │  │  • 向量检索封装                          │                    │
 │  │  • 统计查询                              │                    │
@@ -767,7 +779,7 @@ Echo 采用**领域驱动设计(DDD)**的标准分层架构，目录结构清晰
 │                      │                                          │
 │   PostgreSQL         │          Milvus                          │
 │   (关系数据库)       │        (向量数据库)                      │
-│   models/entities.py │      services/milvus_service.py          │
+│   models/entities.py │    application/milvus_service.py         │
 │                      │                                          │
 │  • User (用户)       │  • agent_{name} collections              │
 │  • Agent (智能体)    │  • 文档向量 (1536 维)                    │
@@ -785,7 +797,7 @@ Echo 采用**领域驱动设计(DDD)**的标准分层架构，目录结构清晰
 │  表现层           │  api/                                   │
 │  (Presentation)  │  • agents.py, chat.py, auth.py ...     │
 ├──────────────────┼─────────────────────────────────────────┤
-│  应用服务层       │  services/                              │
+│  应用服务层       │  application/                           │
 │  (Application)   │  • agent_service.py (Facade)            │
 │                  │  • knowledge_base_service.py            │
 │                  │  • auth_service.py, user_service.py     │
@@ -801,11 +813,15 @@ Echo 采用**领域驱动设计(DDD)**的标准分层架构，目录结构清晰
 │  数据访问层       │  repository/                            │
 │  (Infrastructure)│  └── agent_repository.py                │
 │                  │                                         │
-│                  │  services/milvus_service.py (向量库)    │
+│                  │  application/milvus_service.py (向量库) │
+├──────────────────┼─────────────────────────────────────────┤
+│  DTO 层          │  schemas/                               │
+│  (Data Transfer) │  ├── schemas.py (业务 DTO)              │
+│                  │  └── auth_schemas.py (认证 DTO)         │
 ├──────────────────┼─────────────────────────────────────────┤
 │  领域模型         │  models/                                │
 │  (Domain Model)  │  ├── entities.py (ORM 实体)             │
-│                  │  └── schemas.py (Pydantic Schema)       │
+│                  │  └── auth.py (用户实体)                 │
 └──────────────────┴─────────────────────────────────────────┘
 ```
 
@@ -814,6 +830,7 @@ Echo 采用**领域驱动设计(DDD)**的标准分层架构，目录结构清晰
 - ✅ **单一职责**: 每个模块只负责一种职责
 - ✅ **开闭原则**: 对扩展开放，对修改关闭
 - ✅ **接口隔离**: 通过依赖注入解耦
+- ✅ **标准命名**: application(应用层) / domain(领域层) / repository(数据层) / schemas(DTO层)
 
 ### 架构模式详解
 
@@ -983,7 +1000,7 @@ agent_service = get_agent_service()  # 依赖注入
 
 ### 三层业务解耦
 
-Echo 保留了创新的三层业务解耦设计，实现界面、能力和数据的分离：
+Atlas 保留了创新的三层业务解耦设计，实现界面、能力和数据的分离：
 
 ```
 ┌────────────────────────────────────┐
@@ -1585,7 +1602,7 @@ atlas/
 │   ├── auth.py                 # 认证授权（登录/注册）
 │   └── users.py                # 用户管理
 │
-├── services/                   # 应用服务层（业务逻辑编排）
+├── application/                # 应用服务层（业务流程编排）⭐
 │   ├── __init__.py
 │   ├── agent_service.py        # Facade 协调器（250 行）
 │   ├── knowledge_base_service.py  # 知识库业务逻辑（240 行）
@@ -1611,12 +1628,15 @@ atlas/
 │   ├── __init__.py
 │   └── agent_repository.py     # AgentRepository + DocumentRepository（150 行）
 │
+├── schemas/                    # DTO 层（数据传输对象）⭐
+│   ├── __init__.py
+│   ├── schemas.py              # 业务 Pydantic DTO
+│   └── auth_schemas.py         # 认证 Pydantic DTO
+│
 ├── models/                     # 数据模型（ORM 实体）
 │   ├── __init__.py
 │   ├── entities.py             # Agent/Document/Conversation 实体
-│   ├── auth.py                 # 用户实体模型
-│   ├── schemas.py              # 业务 Pydantic Schema
-│   └── auth_schemas.py         # 认证 Pydantic Schema
+│   └── auth.py                 # 用户实体模型
 │
 ├── core/                       # 核心配置层
 │   ├── __init__.py
@@ -1644,6 +1664,8 @@ atlas/
     ├── MIGRATION_SUMMARY.md    # 数据库迁移指南
     ├── JWT_IMPLEMENTATION_SUMMARY.md  # JWT 实现总结
     └── USAGE.md                # 使用指南
+
+⭐ = 本次 DDD 标准化改造新增/重命名的目录
 ```
 
 ## 🔧 技术栈
@@ -1711,6 +1733,34 @@ atlas/
 - 更新相关文档
 
 ## 📜 更新日志
+
+### v0.4.0 (2025-01-22) - DDD 标准化改造 🏗️
+
+**🔄 目录结构重构**
+- ✅ **services/ → application/** - 应用服务层标准命名（符合 DDD 术语）
+- ✅ **schemas/ 独立** - DTO 层从 models/ 拆分（models/ 仅保留 ORM 实体）
+- ✅ **domain/ 细化** - 领域层拆分为 managers/（生命周期管理）和 processors/（领域工具）
+- ✅ **repository/ 标准化** - Repository 模式（AgentRepository + DocumentRepository）
+
+**📐 架构模式强化**
+- ✅ **四层架构完善**: API → Application → Domain → Repository
+- ✅ **DDD 分层对应**:
+  - 表现层 (Presentation) → `api/`
+  - 应用服务层 (Application) → `application/`
+  - 领域层 (Domain) → `domain/`
+  - 基础设施层 (Infrastructure) → `repository/` + `core/`
+- ✅ **设计原则**: 标准命名、清晰分层、单一职责
+
+**🛠️ 重构工具**
+- ✅ 自动化重构脚本（refactor_to_standard_ddd.py）
+- ✅ 批量更新 15+ 文件的 import 语句
+- ✅ 语法验证和功能测试通过
+
+**📚 文档更新**
+- ✅ README 架构设计章节全面更新
+- ✅ 项目结构树反映新目录（application/ 和 schemas/）
+- ✅ 核心组件说明更新（DTO 层独立说明）
+- ✅ 版本日志更新（记录重构历程）
 
 ### v0.3.0 (2025-12-07) - 架构重构版
 

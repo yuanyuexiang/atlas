@@ -3,7 +3,7 @@ RAG Agent 实例管理器
 职责：管理 RAGAgent 实例的生命周期（创建、缓存、销毁）
 """
 from typing import Dict, Optional
-from services.rag_agent import RAGAgent
+from application.rag_agent import RAGAgent
 from domain.processors.vector_store_manager import VectorStoreManager
 
 

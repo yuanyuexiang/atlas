@@ -1,6 +1,6 @@
 """
 FastAPI 主应用
-Echo 智能客服后端系统
+Atlas 智能客服后端系统
 """
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,13 +14,13 @@ from api import agents, conversations, knowledge_base, chat, auth, users
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时初始化
-    print("🚀 正在启动 Echo 智能客服后端系统...")
+    print("🚀 正在启动 Atlas 智能客服后端系统...")
     init_db()
     print("✅ 数据库已初始化")
     
     # 测试 Milvus 连接
     try:
-        from services.milvus_service import get_milvus_store
+        from application.milvus_service import get_milvus_store
         milvus_store = get_milvus_store()
         print("✅ Milvus 连接成功")
     except Exception as e:
@@ -37,7 +37,7 @@ app = FastAPI(
     title=settings.APP_NAME,
     version=settings.VERSION,
     description="""
-    ## Echo 智能客服后端系统
+    ## Atlas 智能客服后端系统
     
     基于 FastAPI + Milvus + LangChain 构建的智能客服 API
     
@@ -106,7 +106,7 @@ async def health_check():
     """健康检查"""
     try:
         # 检查 Milvus 连接
-        from services.milvus_service import get_milvus_store
+        from application.milvus_service import get_milvus_store
         milvus_store = get_milvus_store()
         
         return {

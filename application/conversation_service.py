@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from models.entities import Conversation, ConversationStatus, Agent, AgentSwitchLog
-from models.schemas import (
+from schemas.schemas import (
     ConversationCreate, ConversationUpdate, ConversationResponse,
     AgentInfo, AgentSwitchRequest, AgentSwitchResponse
 )

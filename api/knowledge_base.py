@@ -3,11 +3,11 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
-from models.schemas import DocumentUploadResponse, KnowledgeBaseStats
+from schemas.schemas import DocumentUploadResponse, KnowledgeBaseStats
 from models.auth import User
 from models.entities import Agent
-from services.agent_service import get_agent_service
-from services.auth_service import get_current_active_user
+from application.agent_service import get_agent_service
+from application.auth_service import get_current_active_user
 from core.database import get_db, SessionLocal
 from core.config import settings
 import os

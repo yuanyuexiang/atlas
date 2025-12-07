@@ -5,11 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
-from models.schemas import MessageRequest, MessageResponse
+from schemas.schemas import MessageRequest, MessageResponse
 from models.auth import User
-from services.conversation_service import ConversationService
-from services.agent_service import get_agent_service
-from services.auth_service import get_current_active_user
+from application.conversation_service import ConversationService
+from application.agent_service import get_agent_service
+from application.auth_service import get_current_active_user
 from core.database import get_db
 import json
 

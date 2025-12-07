@@ -7,11 +7,11 @@ from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from models.entities import Agent, AgentStatus, AgentType
-from models.schemas import AgentCreate, AgentUpdate, AgentResponse, KnowledgeBaseInfo
+from schemas.schemas import AgentCreate, AgentUpdate, AgentResponse, KnowledgeBaseInfo
 from repository.agent_repository import AgentRepository
 from domain.managers.rag_agent_manager import RAGAgentManager, get_rag_agent_manager
-from services.knowledge_base_service import KnowledgeBaseService, get_kb_service
-from services.rag_agent import RAGAgent
+from application.knowledge_base_service import KnowledgeBaseService, get_kb_service
+from application.rag_agent import RAGAgent
 
 
 class AgentService:

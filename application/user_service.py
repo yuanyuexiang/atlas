@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 import uuid
 
 from models.auth import User
-from models.auth_schemas import UserCreate, UserUpdate
-from services.auth_service import get_password_hash
+from schemas.auth_schemas import UserCreate, UserUpdate
+from application.auth_service import get_password_hash
 
 
 class UserService:

@@ -189,6 +189,6 @@ def get_vector_store_manager() -> VectorStoreManager:
     """获取向量存储管理器单例"""
     global _vector_store_manager
     if _vector_store_manager is None:
-        from services.milvus_service import get_milvus_store
+        from application.milvus_service import get_milvus_store
         _vector_store_manager = VectorStoreManager(get_milvus_store())
     return _vector_store_manager

@@ -10,7 +10,7 @@ load_dotenv()
 class Settings:
     """应用配置"""
     # 应用信息
-    APP_NAME: str = "Echo 智能客服后端系统"
+    APP_NAME: str = "Atlas 智能客服后端系统"
     VERSION: str = "0.2.0"
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 
