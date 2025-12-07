@@ -11,7 +11,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain.agents import create_agent
 from langchain_core.tools import tool
 from langchain_core.tools import StructuredTool
-from services.vector_store_manager import VectorStoreManager
+from domain.processors.vector_store_manager import VectorStoreManager
 
 load_dotenv()
 

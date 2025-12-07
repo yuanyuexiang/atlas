@@ -4,7 +4,7 @@ RAG Agent 实例管理器
 """
 from typing import Dict, Optional
 from services.rag_agent import RAGAgent
-from services.vector_store_manager import VectorStoreManager
+from domain.processors.vector_store_manager import VectorStoreManager
 
 
 class RAGAgentManager:
@@ -127,6 +127,6 @@ def get_rag_agent_manager() -> RAGAgentManager:
     """获取 RAG Agent 管理器单例"""
     global _rag_agent_manager
     if _rag_agent_manager is None:
-        from services.vector_store_manager import get_vector_store_manager
+        from domain.processors.vector_store_manager import get_vector_store_manager
         _rag_agent_manager = RAGAgentManager(get_vector_store_manager())
     return _rag_agent_manager

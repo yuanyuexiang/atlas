@@ -7,9 +7,9 @@ import uuid
 from typing import List, Dict, Any
 from datetime import datetime
 from sqlalchemy.orm import Session
-from services.document_processor import DocumentProcessor
-from services.vector_store_manager import VectorStoreManager
-from services.agent_repository import DocumentRepository
+from domain.processors.document_processor import DocumentProcessor
+from domain.processors.vector_store_manager import VectorStoreManager
+from repository.agent_repository import DocumentRepository
 from models.entities import Document, DocumentStatus
 
 
@@ -255,8 +255,8 @@ def get_kb_service() -> KnowledgeBaseService:
     """获取知识库服务单例"""
     global _kb_service
     if _kb_service is None:
-        from services.document_processor import get_document_processor
-        from services.vector_store_manager import get_vector_store_manager
+        from domain.processors.document_processor import get_document_processor
+        from domain.processors.vector_store_manager import get_vector_store_manager
         
         _kb_service = KnowledgeBaseService(
             doc_processor=get_document_processor(),
