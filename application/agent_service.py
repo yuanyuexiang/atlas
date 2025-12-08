@@ -249,15 +249,20 @@ class AgentService:
         """转换为响应对象（轻量级，不查询向量统计）
         
         用于列表查询，避免大量的 Milvus 统计调用
+        使用文档数量作为向量数量的近似值（假设每个文档平均100个向量）
         """
         # 刷新实例以加载关系
         db.refresh(agent)
         
-        # 构建知识库信息（不查询向量数量）
+        # 使用文档数量估算向量数量（避免查询 Milvus）
+        file_count = len(agent.documents) if agent.documents else 0
+        estimated_vectors = file_count * 100 if file_count > 0 else 0
+        
+        # 构建知识库信息
         kb_info = KnowledgeBaseInfo(
             collection_name=agent.milvus_collection or f"agent_{agent.name}",
-            total_files=len(agent.documents) if agent.documents else 0,
-            total_vectors=0,  # 列表查询不统计向量，详情查询才统计
+            total_files=file_count,
+            total_vectors=estimated_vectors,  # 使用估算值，详情查询才精确统计
             total_size_mb=0.0,
             files=[]
         )
