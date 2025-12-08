@@ -37,8 +37,10 @@ class AgentRepository:
         skip: int = 0,
         limit: int = 100
     ) -> List[Agent]:
-        """获取智能体列表"""
-        query = db.query(Agent)
+        """获取智能体列表（使用 joinedload 预加载关系，避免 N+1 查询）"""
+        from sqlalchemy.orm import joinedload
+        
+        query = db.query(Agent).options(joinedload(Agent.documents))
         
         if status:
             query = query.filter(Agent.status == status)

@@ -249,38 +249,20 @@ class AgentService:
         """转换为响应对象（轻量级，不查询向量统计）
         
         用于列表查询，避免大量的 Milvus 统计调用
-        使用文档数量作为向量数量的近似值（假设每个文档平均100个向量）
+        使用文档数量估算向量数量（假设每个文档平均100个向量）
+        
+        注意：此方法不查询 Milvus，完全依赖数据库记录
+        如果需要精确统计，请使用 get_agent (详情接口)
         """
-        # 刷新实例以加载关系
-        db.refresh(agent)
-        
-        # 优先使用数据库的文档记录
+        # 使用数据库的文档记录（已通过 joinedload 预加载）
         file_count = len(agent.documents) if agent.documents else 0
+        estimated_vectors = file_count * 100  # 每个文档估算100个向量
         
-        # 如果数据库中没有记录，但可能 Milvus 中有数据（历史遗留）
-        # 则查询一次 Milvus 来确认
-        if file_count == 0:
-            try:
-                stats = self.kb_service.get_statistics(agent.name)
-                actual_vectors = stats.get("total_vectors", 0)
-                if actual_vectors > 0:
-                    # 有向量数据，估算文件数
-                    file_count = max(1, actual_vectors // 100)  # 反推文件数
-                    estimated_vectors = actual_vectors
-                else:
-                    estimated_vectors = 0
-            except Exception as e:
-                # 查询失败时，使用0
-                estimated_vectors = 0
-        else:
-            # 有数据库记录时，使用估算值
-            estimated_vectors = file_count * 100
-        
-        # 构建知识库信息
+        # 构建知识库信息（完全不查询 Milvus）
         kb_info = KnowledgeBaseInfo(
             collection_name=agent.milvus_collection or f"agent_{agent.name}",
             total_files=file_count,
-            total_vectors=estimated_vectors,  # 使用估算值或实际值
+            total_vectors=estimated_vectors,
             total_size_mb=0.0,
             files=[]
         )
