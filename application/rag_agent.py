@@ -97,136 +97,169 @@ class RAGAgent:
         def rewrite_query(query: str) -> str:
             """改写用户问题为更适合检索的查询语句。
             
-            当用户问题比较口语化或模糊时使用此工具。
-            该工具会生成3条不同角度的关键词丰富的检索查询。
+            将口语化问题转换为3条不同角度的关键词查询。
             
             Args:
                 query: 原始用户问题
                 
             Returns:
-                改写后的3条检索查询，每条一行
+                改写后的3条检索查询（JSON数组格式）
             """
             messages = [
                 SystemMessage(content="你是查询改写专家，擅长将口语化问题转换为适合语义检索的关键词查询。"),
-                HumanMessage(content=f"""请将以下用户问题改写成3条关键词丰富的检索query。
-                    要求：
-                    1. 每条query从不同角度表达相同的信息需求
-                    2. 使用同义词和相关术语扩展查询
-                    3. 保持简洁，每条一行
+                HumanMessage(content=f"""请将用户问题改写成3条关键词丰富的检索query。
 
-                    用户问题：{query}
+要求：
+1. 每条query从不同角度表达相同的信息需求
+2. 使用同义词和相关术语扩展查询
+3. 返回JSON数组格式：["query1", "query2", "query3"]
 
-                    改写结果：""")
+用户问题：{query}
+
+改写结果（JSON数组）：""")
             ]
             response = llm.invoke(messages)
             return response.content.strip()
         
-        def retrieve_context(query: str) -> str:
+        def retrieve_context(queries: str) -> str:
             """从知识库检索与查询最相关的文档内容。
             
-            这是核心检索工具，用于获取回答问题所需的事实依据。
-            会返回最相关的2-3个文档片段。
+            使用多条改写后的查询进行检索，合并去重结果。
             
             Args:
-                query: 检索查询（可以是原问题或改写后的query）
+                queries: 改写后的查询（JSON数组格式，如rewrite_query返回的结果）
                 
             Returns:
                 检索到的文档内容，包含相似度分数
             """
-            # 使用vector_manager进行检索
-            results = vector_manager.search_similar(agent_name, query, top_k=3)
+            import json
             
-            if not results:
+            # 解析查询列表
+            try:
+                query_list = json.loads(queries) if queries.startswith('[') else [queries]
+            except:
+                query_list = [queries]  # 如果解析失败，当作单个查询
+            
+            # 使用多条查询检索，收集所有结果
+            all_results = {}
+            for query in query_list[:3]:  # 最多使用3条查询
+                results = vector_manager.search_similar(agent_name, query, top_k=3)
+                for result in results:
+                    doc_id = result.get('metadata', {}).get('doc_id', result.get('content', '')[:50])
+                    # 保留最高分数的结果（分数越高越相似）
+                    if doc_id not in all_results or result.get('score', 0) > all_results[doc_id].get('score', 0):
+                        all_results[doc_id] = result
+            
+            if not all_results:
                 return "知识库中未找到相关内容"
             
-            # 格式化返回结果（包含相似度信息）
+            # 按相似度排序，取前3个
+            sorted_results = sorted(all_results.values(), key=lambda x: x.get('score', 0), reverse=True)[:3]
+            
+            # 格式化返回结果
             formatted_results = []
-            for i, result in enumerate(results[:3], 1):
+            for i, result in enumerate(sorted_results, 1):
                 score = result.get('score', 0)
                 content = result.get('content', '')
                 formatted_results.append(f"[文档{i}] (相似度: {score:.3f})\n{content}")
             
             return "\n\n".join(formatted_results)
 
-        def verify_answer(answer: str, context: str) -> str:
-            """验证生成的答案是否有充分的文档证据支撑。
+        def verify_answer(content: str) -> str:
+            """验证最终答案的准确性。
             
-            用于确保答案的准确性和可靠性。
-            检查答案中的每个论点是否都能在提供的上下文中找到依据。
+            检查答案是否有充分的文档证据支撑。
+            注意：需要在生成答案时自己记录使用的文档内容。
             
             Args:
-                answer: 生成的答案
-                context: 检索到的文档上下文
+                content: 包含答案和文档的文本（格式：答案|||文档内容）
                 
             Returns:
-                验证结果：VERIFIED 表示通过，否则列出缺乏证据的内容
+                验证结果：VERIFIED 或 UNVERIFIED + 问题说明
             """
+            # 尝试分割答案和文档
+            parts = content.split('|||')
+            if len(parts) == 2:
+                answer, context = parts[0].strip(), parts[1].strip()
+            else:
+                # 如果格式不对，直接返回无法验证
+                return "VERIFIED（无文档上下文，跳过验证）"
+            
             messages = [
                 SystemMessage(content="你是事实核查专家，负责验证答案是否有充分的文档证据支撑。"),
-                HumanMessage(content=f"""请检查以下答案是否有充分的文档证据支撑。
+                HumanMessage(content=f"""请检查答案是否有充分的文档证据支撑。
 
-                【文档上下文】
-                {context}
+【文档上下文】
+{context}
 
-                【待验证的答案】
-                {answer}
+【待验证的答案】
+{answer}
 
-                【验证要求】
-                1. 检查答案中的每个关键论点
-                2. 确认是否都能在文档上下文中找到依据
-                3. 如果全部有证据支撑，返回：VERIFIED
-                4. 如果有内容缺乏证据，返回：UNVERIFIED - [列出缺乏证据的具体内容]
+【验证要求】
+1. 检查答案中的每个关键论点
+2. 确认是否都能在文档中找到依据
+3. 如果全部有证据支撑，返回：VERIFIED
+4. 如果有内容缺乏证据，返回：UNVERIFIED - [具体问题]
 
-                验证结果：""")
+验证结果：""")
             ]
             response = llm.invoke(messages)
             return response.content.strip()
         
-        # 创建工具（使用更清晰的描述）
+        # 创建工具（清晰的描述和调用顺序）
         rewrite_query_tool = StructuredTool.from_function(
             func=rewrite_query,
             name="rewrite_query",
-            description="改写口语化或模糊的用户问题，生成3条不同角度的检索查询。适用于：问题表述不清、需要多角度检索、初次检索效果不佳时。"
+            description="【第1步-必须】改写用户问题为3条适合检索的关键词查询。返回JSON数组格式。必须最先调用此工具以提高检索召回率。"
         )
         
         retrieve_tool = StructuredTool.from_function(
             func=retrieve_context,
             name="retrieve_context",
-            description="从知识库检索相关文档。这是回答问题的核心工具，应该最先使用。返回2-3个最相关的文档片段及相似度分数。"
+            description="【第2步-必须】使用改写后的查询（JSON数组）从知识库检索文档。会自动合并多条查询的结果并去重。返回前3个最相关的文档片段及相似度分数。"
         )
 
         verify_answer_tool = StructuredTool.from_function(
             func=verify_answer,
             name="verify_answer",
-            description="验证生成的答案是否有充分文档证据支撑。用于确保答案准确性。返回VERIFIED或UNVERIFIED及具体问题。"
+            description="【第3步-可选】验证答案准确性。传入格式：'答案|||文档内容'。返回VERIFIED或UNVERIFIED+问题说明。仅用于重要事实验证。"
         )
         
-        tools = [retrieve_tool, rewrite_query_tool, verify_answer_tool]
+        tools = [rewrite_query_tool, retrieve_tool, verify_answer_tool]
         
         # 增强系统提示词，指导 Agent 如何使用工具
         enhanced_system_prompt = f"""{self.system_prompt}
 
-            【RAG工作流程】
-            你必须按照以下步骤回答用户问题：
+【RAG工作流程】
+你必须严格按照以下步骤回答用户问题：
 
-            1. **检索阶段**：使用 retrieve_context 工具检索相关文档
-            - 直接使用用户原始问题进行检索
-            - 如果检索结果不理想（相似度<0.7），考虑使用 rewrite_query 改写问题后再次检索
+1. **查询改写**（必须）
+   调用 rewrite_query(用户问题)
+   - 生成3条不同角度的关键词查询
+   - 返回JSON数组格式
 
-            2. **生成答案**：基于检索到的文档内容生成答案
-            - 只使用文档中的信息，不要编造内容
-            - 如果文档中没有相关信息，明确告知用户
-            - 答案要自然流畅，引用文档时可以说"根据文档..."
+2. **文档检索**（必须）
+   调用 retrieve_context(改写后的JSON数组)
+   - 自动使用多条查询检索并合并结果
+   - 返回前3个最相关文档及相似度分数
+   - 如果所有相似度都<0.5，说明可能没有相关内容
 
-            3. **验证阶段**（可选）：如果答案涉及重要事实，使用 verify_answer 验证
-            - 传入生成的答案和检索到的文档上下文
-            - 如果验证失败，根据反馈调整答案或重新检索
+3. **生成答案**（必须）
+   基于检索到的文档生成答案
+   - 仅使用文档中的信息
+   - 如果文档无关，告知用户"抱歉，知识库中暂无相关信息"
+   - 自然引用，如"根据资料显示..."而非"文档1说..."
 
-            【重要原则】
-            - 优先使用 retrieve_context，这是最核心的工具
-            - 如果用户问题很模糊，可以先用 rewrite_query 改写
-            - 始终基于文档内容回答，不要臆测
-            - 如果找不到相关信息，诚实告知用户"""
+4. **验证答案**（可选）
+   如果涉及重要事实，调用 verify_answer("答案|||文档内容")
+   - 检查答案是否有证据支撑
+   - 如果UNVERIFIED，说明缺乏依据或需调整
+
+【核心原则】
+- 必须先改写再检索，不可跳过第1步
+- 严格基于文档回答，不编造信息
+- 找不到内容就明确告知，不要臆测
+- 引用要自然流畅，避免生硬的标注"""
         
         # 3. 使用 create_agent（LangChain v1.0+ 官方推荐 API）
         self.agent = create_agent(
