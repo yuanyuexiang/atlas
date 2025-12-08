@@ -58,13 +58,23 @@ class RAGAgent:
     
     def _create_agent(self):
         """使用 LangChain v1.0+ Agent 框架创建 Agent"""
-        # 1. 创建 LLM
-        llm = ChatOpenAI(
+        # 1. 创建 LLM（两个实例：一个流式用于Agent，一个非流式用于工具）
+        llm_streaming = ChatOpenAI(
             temperature=0,
             max_tokens=1000,
             model=os.getenv("CHAT_MODEL", "gpt-3.5-turbo"),
             base_url=os.getenv("OPENAI_BASE_URL"),
-            api_key=os.getenv("OPENAI_API_KEY")
+            api_key=os.getenv("OPENAI_API_KEY"),
+            streaming=True  # 🔥 Agent 流式输出
+        )
+        
+        llm_non_streaming = ChatOpenAI(
+            temperature=0,
+            max_tokens=1000,
+            model=os.getenv("CHAT_MODEL", "gpt-3.5-turbo"),
+            base_url=os.getenv("OPENAI_BASE_URL"),
+            api_key=os.getenv("OPENAI_API_KEY"),
+            streaming=False  # 工具内部调用，不使用流式
         )
         
         # 2. 使用 @tool 装饰器定义工具（LangChain v1.0+ 标准方式）
@@ -119,7 +129,7 @@ class RAGAgent:
 
 改写结果（JSON数组）：""")
             ]
-            response = llm.invoke(messages)
+            response = llm_non_streaming.invoke(messages)
             result = response.content.strip()
             print(f"✅ [rewrite_query] 执行完成 - 改写结果: {result}")
             return result
@@ -213,7 +223,7 @@ class RAGAgent:
 
 验证结果：""")
             ]
-            response = llm.invoke(messages)
+            response = llm_non_streaming.invoke(messages)
             result = response.content.strip()
             print(f"✅ [verify_answer] 执行完成 - 验证结果: {result}")
             return result
@@ -276,7 +286,7 @@ class RAGAgent:
         
         # 3. 使用 create_agent（LangChain v1.0+ 官方推荐 API）
         self.agent = create_agent(
-            model=llm,
+            model=llm_streaming,
             tools=tools,
             system_prompt=enhanced_system_prompt,
         )
@@ -361,36 +371,28 @@ class RAGAgent:
             messages.extend(self.chat_history[-10:])
             messages.append({"role": "user", "content": question})
             
-            # Agent 流式响应（LangGraph stream API）
+            # Agent 流式响应（使用 astream_events 获取真正的 token 级流式输出）
             full_response = ""
-            last_content_length = 0
             
-            async for chunk in self.agent.astream(
+            async for event in self.agent.astream_events(
                 {"messages": messages},
-                stream_mode="values"  # 流式输出状态值
+                version="v2"  # 使用 v2 版本获取更细粒度的事件
             ):
-                # 获取最新消息
-                latest_messages = chunk.get("messages", [])
-                if latest_messages:
-                    latest_message = latest_messages[-1]
-                    print(f"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Latest message: {latest_message}")
-                    
-                    # 只处理 AIMessage，过滤掉 HumanMessage、ToolMessage 等
-                    if hasattr(latest_message, "__class__") and latest_message.__class__.__name__ == "AIMessage":
-                        # 如果是 AI 消息且有内容，流式输出
-                        if hasattr(latest_message, "content") and latest_message.content:
-                            content = latest_message.content
-                            # 只输出新增的内容（增量输出）
-                            if len(content) > last_content_length:
-                                new_content = content[last_content_length:]
-                                last_content_length = len(content)
-                                full_response = content
-                                yield new_content
-                        
-                        # 如果是工具调用，打印日志（但不输出给用户）
-                        elif hasattr(latest_message, "tool_calls") and latest_message.tool_calls:
-                            for tc in latest_message.tool_calls:
-                                print(f"🔧 Agent 正在使用工具: {tc.get('name', 'unknown')}")
+                kind = event.get("event")
+                
+                # 只处理 LLM 的流式 token 输出
+                if kind == "on_chat_model_stream":
+                    chunk_content = event.get("data", {}).get("chunk")
+                    if chunk_content and hasattr(chunk_content, "content"):
+                        token = chunk_content.content
+                        if token:
+                            full_response += token
+                            yield token
+                
+                # 打印工具调用日志（不输出给用户）
+                elif kind == "on_tool_start":
+                    tool_name = event.get("name", "unknown")
+                    print(f"🔧 Agent 正在使用工具: {tool_name}")
             
             # 更新对话历史（添加时间戳）
             if full_response:
