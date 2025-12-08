@@ -103,14 +103,25 @@ class AgentService:
         limit: int = 100
     ) -> List[AgentResponse]:
         """获取智能体列表"""
+        import time
+        start_time = time.time()
+        
         status_enum = AgentStatus(status) if status else None
         agents = self.agent_repo.list_all(db, status_enum, skip, limit)
+        
+        print(f"⏱️ [list_agents] 数据库查询耗时: {time.time() - start_time:.3f}秒")
         
         # 如果指定了 agent_type，进行过滤
         if agent_type:
             agents = [a for a in agents if a.agent_type.value == agent_type]
         
-        return [self._to_response(db, agent) for agent in agents]
+        # 批量转换，使用轻量级响应（不查询向量统计）
+        convert_start = time.time()
+        result = [self._to_response_lite(db, agent) for agent in agents]
+        print(f"⏱️ [list_agents] 转换响应耗时: {time.time() - convert_start:.3f}秒")
+        print(f"⏱️ [list_agents] 总耗时: {time.time() - start_time:.3f}秒")
+        
+        return result
     
     def update_agent(
         self,
@@ -202,7 +213,7 @@ class AgentService:
         return prompts.get(agent_type, prompts["general"])
     
     def _to_response(self, db: Session, agent: Agent) -> AgentResponse:
-        """转换为响应对象"""
+        """转换为响应对象（完整版，包含向量统计）"""
         # 刷新实例以加载关系
         db.refresh(agent)
         
@@ -217,6 +228,36 @@ class AgentService:
             collection_name=agent.milvus_collection or f"agent_{agent.name}",
             total_files=len(agent.documents) if agent.documents else 0,
             total_vectors=vector_count,
+            total_size_mb=0.0,
+            files=[]
+        )
+        
+        return AgentResponse(
+            id=agent.id,
+            name=agent.name,
+            display_name=agent.display_name,
+            agent_type=agent.agent_type.value,
+            status=agent.status.value,
+            system_prompt=agent.system_prompt,
+            description=agent.description,
+            knowledge_base=kb_info,
+            created_at=agent.created_at,
+            updated_at=agent.updated_at
+        )
+    
+    def _to_response_lite(self, db: Session, agent: Agent) -> AgentResponse:
+        """转换为响应对象（轻量级，不查询向量统计）
+        
+        用于列表查询，避免大量的 Milvus 统计调用
+        """
+        # 刷新实例以加载关系
+        db.refresh(agent)
+        
+        # 构建知识库信息（不查询向量数量）
+        kb_info = KnowledgeBaseInfo(
+            collection_name=agent.milvus_collection or f"agent_{agent.name}",
+            total_files=len(agent.documents) if agent.documents else 0,
+            total_vectors=0,  # 列表查询不统计向量，详情查询才统计
             total_size_mb=0.0,
             files=[]
         )
