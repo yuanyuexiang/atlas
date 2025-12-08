@@ -242,33 +242,34 @@ class RAGAgent:
         # 增强系统提示词，指导 Agent 如何使用工具
         enhanced_system_prompt = f"""{self.system_prompt}
 
-【RAG工作流程】
-你必须严格按照以下步骤回答用户问题：
+【RAG工作流程 - 严格顺序执行】
+你必须按照以下步骤**顺序执行**，不可并行调用工具：
 
-1. **查询改写**（必须）
-   调用 rewrite_query(用户问题)
-   - 生成3条不同角度的关键词查询
-   - 返回JSON数组格式
+1. **查询改写**（第1步-必须先执行）
+   先调用 rewrite_query(用户问题)
+   - 等待返回结果（JSON数组格式）
+   - 例如：["关键词查询1", "关键词查询2", "关键词查询3"]
 
-2. **文档检索**（必须）
-   调用 retrieve_context(改写后的JSON数组)
-   - 自动使用多条查询检索并合并结果
+2. **文档检索**（第2步-使用第1步的返回结果）
+   使用第1步返回的JSON数组调用 retrieve_context(第1步的结果)
+   - 必须等待rewrite_query完成后再调用
+   - 传入的参数必须是rewrite_query的返回值
    - 返回前3个最相关文档及相似度分数
-   - 如果所有相似度都<0.5，说明可能没有相关内容
 
-3. **生成答案**（必须）
-   基于检索到的文档生成答案
+3. **生成答案**（第3步-基于第2步的文档）
+   基于retrieve_context返回的文档生成答案
    - 仅使用文档中的信息
-   - 如果文档无关，告知用户"抱歉，知识库中暂无相关信息"
+   - 如果文档无关（相似度<0.5），告知"抱歉，知识库中暂无相关信息"
    - 自然引用，如"根据资料显示..."而非"文档1说..."
 
-4. **验证答案**（可选）
+4. **验证答案**（第4步-可选）
    如果涉及重要事实，调用 verify_answer("答案|||文档内容")
    - 检查答案是否有证据支撑
    - 如果UNVERIFIED，说明缺乏依据或需调整
 
-【核心原则】
-- 必须先改写再检索，不可跳过第1步
+【关键规则】
+⚠️ 禁止并行调用工具！必须等待前一个工具返回结果后再调用下一个
+⚠️ retrieve_context的参数必须是rewrite_query的返回值，不可自己编造
 - 严格基于文档回答，不编造信息
 - 找不到内容就明确告知，不要臆测
 - 引用要自然流畅，避免生硬的标注"""
@@ -373,20 +374,23 @@ class RAGAgent:
                 if latest_messages:
                     latest_message = latest_messages[-1]
                     print(f"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Latest message: {latest_message}")
-                    # 如果是 AI 消息，流式输出内容
-                    if hasattr(latest_message, "content") and latest_message.content:
-                        content = latest_message.content
-                        # 只输出新增的内容（增量输出）
-                        if len(content) > last_content_length:
-                            new_content = content[last_content_length:]
-                            last_content_length = len(content)
-                            full_response = content
-                            yield new_content
                     
-                    # 如果是工具调用，打印日志
-                    elif hasattr(latest_message, "tool_calls") and latest_message.tool_calls:
-                        for tc in latest_message.tool_calls:
-                            print(f"🔧 Agent 正在使用工具: {tc.get('name', 'unknown')}")
+                    # 只处理 AIMessage，过滤掉 HumanMessage、ToolMessage 等
+                    if hasattr(latest_message, "__class__") and latest_message.__class__.__name__ == "AIMessage":
+                        # 如果是 AI 消息且有内容，流式输出
+                        if hasattr(latest_message, "content") and latest_message.content:
+                            content = latest_message.content
+                            # 只输出新增的内容（增量输出）
+                            if len(content) > last_content_length:
+                                new_content = content[last_content_length:]
+                                last_content_length = len(content)
+                                full_response = content
+                                yield new_content
+                        
+                        # 如果是工具调用，打印日志（但不输出给用户）
+                        elif hasattr(latest_message, "tool_calls") and latest_message.tool_calls:
+                            for tc in latest_message.tool_calls:
+                                print(f"🔧 Agent 正在使用工具: {tc.get('name', 'unknown')}")
             
             # 更新对话历史（添加时间戳）
             if full_response:
