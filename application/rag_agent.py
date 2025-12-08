@@ -327,7 +327,7 @@ class RAGAgent:
                 latest_messages = chunk.get("messages", [])
                 if latest_messages:
                     latest_message = latest_messages[-1]
-                    
+                    print(f"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Latest message: {latest_message}")
                     # 如果是 AI 消息，流式输出内容
                     if hasattr(latest_message, "content") and latest_message.content:
                         content = latest_message.content
