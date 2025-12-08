@@ -105,6 +105,7 @@ class RAGAgent:
             Returns:
                 改写后的3条检索查询（JSON数组格式）
             """
+            print(f"\n🔧 [rewrite_query] 开始执行 - 原始问题: {query}")
             messages = [
                 SystemMessage(content="你是查询改写专家，擅长将口语化问题转换为适合语义检索的关键词查询。"),
                 HumanMessage(content=f"""请将用户问题改写成3条关键词丰富的检索query。
@@ -119,7 +120,9 @@ class RAGAgent:
 改写结果（JSON数组）：""")
             ]
             response = llm.invoke(messages)
-            return response.content.strip()
+            result = response.content.strip()
+            print(f"✅ [rewrite_query] 执行完成 - 改写结果: {result}")
+            return result
         
         def retrieve_context(queries: str) -> str:
             """从知识库检索与查询最相关的文档内容。
@@ -132,6 +135,7 @@ class RAGAgent:
             Returns:
                 检索到的文档内容，包含相似度分数
             """
+            print(f"\n🔧 [retrieve_context] 开始执行 - 收到查询: {queries}")
             import json
             
             # 解析查询列表
@@ -140,9 +144,12 @@ class RAGAgent:
             except:
                 query_list = [queries]  # 如果解析失败，当作单个查询
             
+            print(f"📋 [retrieve_context] 解析后的查询列表: {query_list}")
+            
             # 使用多条查询检索，收集所有结果
             all_results = {}
             for query in query_list[:3]:  # 最多使用3条查询
+                print(f"🔍 [retrieve_context] 正在检索: {query}")
                 results = vector_manager.search_similar(agent_name, query, top_k=3)
                 for result in results:
                     doc_id = result.get('metadata', {}).get('doc_id', result.get('content', '')[:50])
@@ -163,7 +170,9 @@ class RAGAgent:
                 content = result.get('content', '')
                 formatted_results.append(f"[文档{i}] (相似度: {score:.3f})\n{content}")
             
-            return "\n\n".join(formatted_results)
+            result_text = "\n\n".join(formatted_results)
+            print(f"✅ [retrieve_context] 执行完成 - 返回 {len(sorted_results)} 个文档")
+            return result_text
 
         def verify_answer(content: str) -> str:
             """验证最终答案的准确性。
@@ -177,6 +186,7 @@ class RAGAgent:
             Returns:
                 验证结果：VERIFIED 或 UNVERIFIED + 问题说明
             """
+            print(f"\n🔧 [verify_answer] 开始执行 - 收到内容长度: {len(content)} 字符")
             # 尝试分割答案和文档
             parts = content.split('|||')
             if len(parts) == 2:
@@ -204,7 +214,9 @@ class RAGAgent:
 验证结果：""")
             ]
             response = llm.invoke(messages)
-            return response.content.strip()
+            result = response.content.strip()
+            print(f"✅ [verify_answer] 执行完成 - 验证结果: {result}")
+            return result
         
         # 创建工具（清晰的描述和调用顺序）
         rewrite_query_tool = StructuredTool.from_function(
