@@ -284,9 +284,6 @@ class AgentService:
             total_size_mb=0.0,
             files=[]
         )
-            total_size_mb=0.0,
-            files=[]
-        )
         
         return AgentResponse(
             id=agent.id,
