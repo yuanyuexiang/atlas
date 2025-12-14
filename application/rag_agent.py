@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain.agents import create_agent
+from langchain.agents import AgentExecutor
 from langchain_core.tools import tool
 from langchain_core.tools import StructuredTool
 from domain.processors.vector_store_manager import VectorStoreManager
@@ -44,7 +45,7 @@ class RAGAgent:
         self.system_prompt = system_prompt.strip()
         self.vector_manager = vector_manager
         self.vector_store = None
-        self.agent = None
+        self.executor = None
         self.chat_history = []
         
         # 初始化
@@ -80,29 +81,6 @@ class RAGAgent:
         # 2. 使用 @tool 装饰器定义工具（LangChain v1.0+ 标准方式）
         agent_name = self.agent_name  # 闭包捕获
         vector_manager = self.vector_manager
-        
-        @tool
-        def knowledge_base_search(query: str) -> str:
-            """搜索智能体的知识库获取相关文档内容。
-            
-            这个工具的功能是查找原始资料，用于回答用户提出的**所有事实性问题**。
-            
-            **[通用检索指南]**：如果用户的查询需要**精确事实、特定身份、或跨上下文的定义**，你应该尝试使用包含**多个角度或同义词**的关键词进行搜索，以提高全面召回率。
-            
-            你需要阅读工具返回的所有原始文档，并提取关键信息，用自然的语言组织成最终答案。
-            
-            Args:
-                query: 搜索查询（用户问题或关键词，请确保查询词能最大限度地覆盖知识库中的相关信息）
-                
-            Returns:
-                原始文档内容（需要你进一步处理和总结）
-            """
-            results = vector_manager.search_similar(agent_name, query, top_k=3)
-            if not results:
-                return "知识库中未找到相关内容"
-            
-            # 简洁返回，不加任何"文档片段"标签
-            return "\n\n".join(r['content'] for r in results[:3])
 
         def rewrite_query(query: str) -> str:
             """改写用户问题为更适合检索的查询语句。
@@ -285,13 +263,20 @@ class RAGAgent:
         - 引用要自然流畅，避免生硬的标注"""
         
         # 3. 使用 create_agent（LangChain v1.0+ 官方推荐 API）
-        self.agent = create_agent(
+        agent = create_agent(
             model=llm_streaming,
             tools=tools,
             system_prompt=enhanced_system_prompt,
         )
-        
-        print(f"✅ LangChain v1.0+ Agent 创建成功 (create_agent): {self.agent_name} and system_prompt ({self.system_prompt})")
+        print(f"✅ LangChain v1.0+ Agent 创建成功 (create_agent): {self.agent_name}")
+
+        # 4. 创建 AgentExecutor 封装执行逻辑
+        self.executor = AgentExecutor(
+            agent=agent,
+            tools=tools,
+            max_iterations=5  # 可根据需要调整
+        )
+        print(f"✅ AgentExecutor 已创建完成: {self.agent_name}")
     
     def ask(self, question: str) -> str:
         """
@@ -317,8 +302,8 @@ class RAGAgent:
             # 添加当前用户问题
             messages.append({"role": "user", "content": question})
             
-            # 使用 Agent 执行（LangGraph API）
-            result = self.agent.invoke({"messages": messages})
+            # 使用 AgentExecutor 执行
+            result = self.executor.invoke({"input": "", "messages": messages})
             
             # 提取最后一条 AI 消息
             final_messages = result.get("messages", [])
@@ -371,11 +356,11 @@ class RAGAgent:
             messages.extend(self.chat_history[-10:])
             messages.append({"role": "user", "content": question})
             
-            # Agent 流式响应（使用 astream_events 获取真正的 token 级流式输出）
+            # AgentExecutor 流式响应（使用 astream_events 获取真正的 token 级流式输出）
             full_response = ""
             
-            async for event in self.agent.astream_events(
-                {"messages": messages},
+            async for event in self.executor.astream_events(
+                {"input": "", "messages": messages},
                 version="v2"  # 使用 v2 版本获取更细粒度的事件
             ):
                 kind = event.get("event")
