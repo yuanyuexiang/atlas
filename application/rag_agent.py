@@ -9,14 +9,11 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain.agents import create_agent
-from langchain.agents import AgentExecutor
 from langchain_core.tools import tool
 from langchain_core.tools import StructuredTool
 from domain.processors.vector_store_manager import VectorStoreManager
 
 load_dotenv()
-
-
 
 class RAGAgent:
     """基于 Milvus 的 RAG Agent - 纯对话逻辑"""
@@ -45,7 +42,7 @@ class RAGAgent:
         self.system_prompt = system_prompt.strip()
         self.vector_manager = vector_manager
         self.vector_store = None
-        self.executor = None
+        self.agent = None
         self.chat_history = []
         
         # 初始化
@@ -263,20 +260,12 @@ class RAGAgent:
         - 引用要自然流畅，避免生硬的标注"""
         
         # 3. 使用 create_agent（LangChain v1.0+ 官方推荐 API）
-        agent = create_agent(
+        self.agent = create_agent(
             model=llm_streaming,
             tools=tools,
             system_prompt=enhanced_system_prompt,
         )
-        print(f"✅ LangChain v1.0+ Agent 创建成功 (create_agent): {self.agent_name}")
-
-        # 4. 创建 AgentExecutor 封装执行逻辑
-        self.executor = AgentExecutor(
-            agent=agent,
-            tools=tools,
-            max_iterations=5  # 可根据需要调整
-        )
-        print(f"✅ AgentExecutor 已创建完成: {self.agent_name}")
+        print(f"✅ LangChain v1.0+ Agent 创建成功 (create_agent): {self.agent_name} and system_prompt ({self.system_prompt})")
     
     def ask(self, question: str) -> str:
         """
@@ -302,8 +291,8 @@ class RAGAgent:
             # 添加当前用户问题
             messages.append({"role": "user", "content": question})
             
-            # 使用 AgentExecutor 执行
-            result = self.executor.invoke({"input": "", "messages": messages})
+            # 使用 Agent 执行（LangGraph API）
+            result = self.agent.invoke({"messages": messages})
             
             # 提取最后一条 AI 消息
             final_messages = result.get("messages", [])
@@ -356,11 +345,11 @@ class RAGAgent:
             messages.extend(self.chat_history[-10:])
             messages.append({"role": "user", "content": question})
             
-            # AgentExecutor 流式响应（使用 astream_events 获取真正的 token 级流式输出）
+            # Agent 流式响应（使用 astream_events 获取真正的 token 级流式输出）
             full_response = ""
             
-            async for event in self.executor.astream_events(
-                {"input": "", "messages": messages},
+            async for event in self.agent.astream_events(
+                {"messages": messages},
                 version="v2"  # 使用 v2 版本获取更细粒度的事件
             ):
                 kind = event.get("event")
