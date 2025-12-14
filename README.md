@@ -325,14 +325,20 @@ class AgentRepository:
 
 **application/rag_agent.py** (RAG 核心逻辑)
 - **职责**: 基于 LangChain 的 RAG Agent 实现
-- **功能**:
-  - 检索增强生成（Retrieval-Augmented Generation）
-  - 对话历史管理（ConversationBufferMemory）
-  - 流式/非流式响应
-  - 源文档引用
-- **检索策略**: 
-  - 相似度搜索（top_k=5）
-  - 分数阈值过滤
+- **框架**: 使用 `create_agent()` 创建 Agent，支持 `.invoke()` 和 `.astream_events()` 调用
+- **核心功能**:
+  - ✅ **三阶段 RAG 流程**:
+    1. **查询改写** (rewrite_query)：口语化问题 → 3 条多角度检索查询（JSON 数组）
+    2. **文档检索** (retrieve_context)：多查询合并去重，按相似度排序（返回 Top-3）
+    3. **答案生成**：基于检索文档，LLM 流式生成答案
+    4. **答案验证** (verify_answer)：可选的事实核查（VERIFIED/UNVERIFIED）
+  - ✅ **双 LLM 架构**:
+    - `llm_streaming`: Agent 主流程，逐 token 流式输出
+    - `llm_non_streaming`: 工具内部调用，同步返回完整结果
+  - ✅ **Token 级流式输出**: 通过 `.astream_events(version="v2")` 实现
+  - ✅ **对话历史管理**: `messages` 列表维护上下文
+- **工具定义**: 使用 `StructuredTool.from_function()` 定义，完整的签名和描述
+- **检索策略**: Milvus 相似度搜索 + COSINE 相似度 + 相似度排序
 
 #### 4. **API 路由层 + Schema** (api/)
 
@@ -1616,22 +1622,17 @@ atlas/
 ├── pyproject.toml              # 项目依赖配置
 ├── Dockerfile                  # Docker 镜像构建
 ├── docker-compose.yaml         # Docker Compose 配置
-├── .env.example                # 环境变量示例
 │
-├── api/                        # API 路由层
+├── api/                        # 🎯 API 路由层（表现层）
 │   ├── __init__.py
-│   ├── auth.py                 # 认证接口（登录/注册）
-│   ├── users.py                # 用户管理（管理员）
-├── api/                        # API 路由层（表现层）
-│   ├── __init__.py
-│   ├── agents.py               # 智能体 CRUD
-│   ├── conversations.py        # 客服管理
-│   ├── knowledge_base.py       # 知识库管理（异步上传）
-│   ├── chat.py                 # 对话接口（流式/非流式）
-│   ├── auth.py                 # 认证授权（登录/注册）
-│   ├── users.py                # 用户管理
+│   ├── agents.py               # 智能体管理接口
+│   ├── conversations.py        # 客服管理接口
+│   ├── knowledge_base.py       # 知识库管理接口（异步上传）
+│   ├── chat.py                 # 对话接口（支持流式）
+│   ├── auth.py                 # 认证授权接口
+│   ├── users.py                # 用户管理接口
 │   │
-│   └── schemas/                # API Schema 层（Pydantic DTO）⭐
+│   └── schemas/                # Pydantic DTO 层
 │       ├── __init__.py
 │       ├── agent.py            # 智能体相关 Schema
 │       ├── conversation.py     # 客服相关 Schema
@@ -1640,73 +1641,72 @@ atlas/
 │       ├── auth.py             # 认证相关 Schema
 │       └── common.py           # 通用 Schema
 │
-├── application/                # 应用服务层（业务流程编排）⭐
+├── application/                # 🎯 应用服务层（业务流程编排）
 │   ├── __init__.py
-│   ├── agent_service.py        # Facade 协调器（250 行）
+│   ├── agent_service.py        # Agent Facade 协调器（250 行）
 │   ├── knowledge_base_service.py  # 知识库业务逻辑（240 行）
 │   ├── conversation_service.py # 客服服务
-│   ├── auth_service.py         # 认证服务（JWT）
+│   ├── auth_service.py         # 认证服务（JWT Token）
 │   ├── user_service.py         # 用户服务
-│   ├── rag_agent.py            # RAG 核心逻辑（LangChain）
-│   └── milvus_service.py       # Milvus 向量数据库封装
+│   ├── rag_agent.py            # RAG 核心逻辑（LangChain Agent）
+│   └── milvus_service.py       # Milvus 向量库操作
 │
-├── domain/                     # 领域层（DDD 领域逻辑）⭐
+├── domain/                     # 🎯 领域层（DDD 核心）
 │   ├── __init__.py
-│   ├── entities.py             # 领域实体（Agent/Document/Conversation ORM）
+│   ├── entities.py             # ORM 实体（Agent/Document/Conversation）
 │   ├── auth.py                 # 认证实体（User ORM）
 │   │
 │   ├── managers/               # 领域管理器（生命周期管理）
 │   │   ├── __init__.py
-│   │   └── rag_agent_manager.py  # RAG 实例管理器（130 行）
+│   │   └── rag_agent_manager.py  # RAG Agent 实例管理器（内存缓存）
 │   │
-│   └── processors/             # 领域处理器（领域工具）
+│   └── processors/             # 领域处理器（业务工具）
 │       ├── __init__.py
-│       ├── document_processor.py    # 文档处理引擎
-│       └── vector_store_manager.py  # 向量存储管理
+│       ├── document_processor.py    # 文档处理（PDF/TXT/MD 解析）
+│       └── vector_store_manager.py  # 向量存储管理（Milvus 操作封装）
 │
-├── repository/                 # 数据访问层（Repository/DAO）
+├── repository/                 # 🎯 数据访问层（Repository 模式）
 │   ├── __init__.py
-│   └── agent_repository.py     # AgentRepository + DocumentRepository（150 行）
+│   └── agent_repository.py     # Agent + Document Repository（CRUD）
 │
-├── schemas/                    # DTO 层（数据传输对象）⭐
+├── config/                     # 🎯 配置层
 │   ├── __init__.py
-│   ├── schemas.py              # 业务 Pydantic DTO
-│   └── auth_schemas.py         # 认证 Pydantic DTO
+│   ├── settings.py             # 全局配置（Pydantic Settings）
+│   ├── database.py             # PostgreSQL 连接池配置
+│   ├── auth.py                 # JWT 认证配置
+│   └── milvus.py               # Milvus 向量库配置
 │
-├── core/                       # 核心配置层
-│   ├── __init__.py
-│   ├── config.py               # 全局配置（数据库/LLM/JWT）
-│   ├── auth_config.py          # 认证配置（密码/Token）
-│   ├── database.py             # 数据库连接（连接池）
-│   └── milvus_config.py        # Milvus 配置（索引/度量）
+├── metadata_store/             # 元数据存储（本地 JSON）
+│   └── [agent_name]/
+│       └── file_metadata.json
 │
-├── metadata_store/             # 元数据存储（JSON 文件）
-│   └── [agent_name]/           # 每个智能体的元数据
-│       └── file_metadata.json  # 文件列表（向 Document 表迁移）
-│
-├── uploads/                    # 文档上传目录（临时）
-│   └── [agent_name]/           # 每个智能体的文档
+├── uploads/                    # 文档上传临时目录
+│   └── [agent_name]/
 │
 ├── .github/                    # GitHub Actions CI/CD
-│   ├── workflows/
-│   │   └── main.yml            # 自动部署流程
-│   └── SECRETS_SETUP.md        # Secrets 配置指南
+│   └── workflows/
+│       └── main.yml
 │
-└── docs/                       # 文档
+└── 📚 文档
     ├── README.md               # 本文档
     ├── FRONTEND_GUIDE.md       # 前端开发指南
-    ├── AUTHENTICATION.md       # 认证详细说明
+    ├── AUTHENTICATION.md       # JWT 认证详解
     ├── MIGRATION_SUMMARY.md    # 数据库迁移指南
-    ├── JWT_IMPLEMENTATION_SUMMARY.md  # JWT 实现总结
     └── USAGE.md                # 使用指南
 
-⭐ = 本次 DDD 标准化改造新增/重命名的目录
+🎯 = 四层架构核心层
 ```
+
+**架构分层说明**：
+1. **API 层** (api/) - HTTP 请求处理、参数验证、响应格式化
+2. **应用层** (application/) - 业务流程编排、多个 service 协调、Facade 模式
+3. **领域层** (domain/) - DDD 核心，包含实体、管理器、处理器
+4. **基础设施层** (repository/ + config/) - 数据访问、外部服务配置
 
 ## 🔧 技术栈
 
 ### 后端框架
-- **FastAPI** `0.109+`: 高性能 Python Web 框架
+- **FastAPI** `0.104+`: 高性能 Python Web 框架
 - **Uvicorn**: ASGI 服务器
 - **Pydantic** `2.0+`: 数据验证和序列化
 
@@ -1716,7 +1716,7 @@ atlas/
 - **SQLAlchemy** `2.0+`: Python ORM
 
 ### AI / RAG
-- **LangChain** `0.1+`: RAG 框架
+- **LangChain** `1.0+`: RAG 框架
 - **OpenAI API**: LLM 和 Embedding（支持兼容接口）
 - **文档解析**: PyPDF2、docx、markdown
 
@@ -1816,7 +1816,7 @@ atlas/
   - 表现层 (Presentation) → `api/` + `api/schemas/`
   - 应用服务层 (Application) → `application/`
   - 领域层 (Domain) → `domain/`（含实体、管理器、处理器）
-  - 基础设施层 (Infrastructure) → `repository/` + `core/`
+  - 基础设施层 (Infrastructure) → `repository/` + `config/`
 - ✅ **设计原则**: 标准命名、清晰分层、实用主义、Python 社区最佳实践
 
 **🛠️ 重构工具**
